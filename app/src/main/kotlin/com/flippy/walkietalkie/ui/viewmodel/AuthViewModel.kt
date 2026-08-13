@@ -1,6 +1,7 @@
 package com.flippy.walkietalkie.ui.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.flippy.walkietalkie.data.supabase.SupabaseRepository
@@ -47,6 +48,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 SupabaseRepository.sendEmailCode(clean)
                 _uiState.update { it.copy(loading = false, emailCodeSent = true) }
             } catch (e: Exception) {
+                Log.e("Flippy", "Error enviando código de correo", e)
                 setError(friendlyAuthError(e.message))
             }
         }
@@ -64,6 +66,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 SupabaseRepository.verifyEmailCode(email.trim(), cleanCode)
                 _uiState.update { it.copy(loading = false) }
             } catch (e: Exception) {
+                Log.e("Flippy", "Error verificando código de correo", e)
                 setError(friendlyAuthError(e.message))
             }
         }
@@ -84,8 +87,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun friendlyAuthError(raw: String?): String = when {
         raw == null -> "Error desconocido"
+        raw.contains("rate limit", true) ->
+            "Demasiados intentos: espera unos minutos y reenvía el código"
+        raw.contains("expired", true) ->
+            "El código venció: pulsa «Reenviar código» y usa el nuevo"
         raw.contains("Invalid login", true) || raw.contains("invalid", true) && raw.contains("token", true) ->
-            "Código incorrecto, inténtalo de nuevo"
+            "Código incorrecto: usa el último código que te llegó al correo"
         raw.contains("provider is not enabled", true) || raw.contains("Unsupported provider", true) ->
             "Este método no está activado en Supabase (Authentication → Providers)"
         raw.contains("Unable to validate email", true) -> "Correo no válido"

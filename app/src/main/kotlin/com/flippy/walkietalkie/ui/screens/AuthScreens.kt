@@ -196,8 +196,19 @@ fun EmailAuthScreen(
         }
 
         if (uiState.emailCodeSent) {
-            TextButton(onClick = { authViewModel.resetFlows() }) {
-                Text("Usar otro correo", color = TextSecondary)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                TextButton(onClick = {
+                    code = ""
+                    authViewModel.sendEmailCode(email)
+                }) {
+                    Text("Reenviar código", color = Accent)
+                }
+                TextButton(onClick = { authViewModel.resetFlows() }) {
+                    Text("Usar otro correo", color = TextSecondary)
+                }
             }
         }
     }
