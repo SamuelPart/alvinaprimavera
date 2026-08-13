@@ -1,12 +1,15 @@
 package com.flippy.walkietalkie.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
+import android.util.Base64
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.flippy.walkietalkie.audio.*
 import com.flippy.walkietalkie.data.model.*
+import com.flippy.walkietalkie.data.supabase.*
 import com.flippy.walkietalkie.network.SocketEvent
 import com.flippy.walkietalkie.network.WebSocketClient
 import com.flippy.walkietalkie.service.WalkieTalkieForegroundService
@@ -61,10 +64,18 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     private val audioPlayer = AudioPlayer(application)
     private val webSocketClient = WebSocketClient()
 
-    private val prefs = application.getSharedPreferences("flippy_prefs", android.content.Context.MODE_PRIVATE)
+    private val prefs = application.getSharedPreferences("flippy_prefs", Context.MODE_PRIVATE)
+
+    // Supabase es el backend principal; el WebSocket local queda como
+    // fallback cuando no hay credenciales configuradas en local.properties
+    private val useSupabase: Boolean = SupabaseRepository.isConfigured()
+
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected = _isConnected.asStateFlow()
 
     private val _uiState = MutableStateFlow(
         FlippyUiState(
+            userProfile = loadOrCreateLocalProfile(),
             serverUrl = prefs.getString("server_url", "ws://10.0.2.2:3000/ws") ?: "ws://10.0.2.2:3000/ws"
         )
     )
@@ -74,7 +85,6 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     val waveformSamples = audioRecorder.waveformSamples
     val isAudioPlaying = audioPlayer.isPlaying
     val currentPlayingId = audioPlayer.currentPlayingId
-    val isConnected = webSocketClient.isConnected
 
     private var durationTimerJob: Job? = null
 
@@ -85,10 +95,152 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.value.activeChannel.frequency
         )
 
-        // Connect WebSocket using saved or default server URL
+        if (useSupabase) startSupabaseBackend() else startWebSocketFallback()
+    }
+
+    /** ID Flippy estable por dispositivo: se genera una vez y se guarda en prefs. */
+    private fun loadOrCreateLocalProfile(): User {
+        val savedId = prefs.getString("flippy_id", null)
+        val savedName = prefs.getString("flippy_username", null)
+        if (savedId != null && savedName != null) {
+            return User(
+                id = savedId,
+                username = savedName,
+                avatar = prefs.getString("flippy_avatar", "📻") ?: "📻"
+            )
+        }
+        val newId = "FLIP-" + Random.nextInt(1000, 9999) + ('A'..'Z').random()
+        val newName = "Operador-" + Random.nextInt(100, 999)
+        val newAvatar = "📻"
+        prefs.edit()
+            .putString("flippy_id", newId)
+            .putString("flippy_username", newName)
+            .putString("flippy_avatar", newAvatar)
+            .apply()
+        return User(id = newId, username = newName, avatar = newAvatar)
+    }
+
+    // ============================================================
+    //  Backend principal: Supabase (Postgrest + Realtime + Storage)
+    // ============================================================
+
+    private fun startSupabaseBackend() {
+        viewModelScope.launch {
+            // Se crean los flujos (y sus canales) antes de conectar,
+            // como recomienda supabase-kt para no perder eventos
+            val incomingMessages = SupabaseRepository.observeMessages()
+            val incomingPtt = SupabaseRepository.observePttEvents()
+
+            _isConnected.value = SupabaseRepository.connectRealtime()
+
+            // Transmisiones entrantes de otros operadores en tiempo real
+            launch {
+                incomingMessages.collect { dto ->
+                    if (dto.sender_flippy_id == _uiState.value.userProfile.id) return@collect
+                    val msg = dto.toVoiceMessage()
+                    _uiState.update {
+                        it.copy(isIncoming = false, messages = listOf(msg) + it.messages)
+                    }
+                    if (_uiState.value.autoPlayIncoming) {
+                        playRemoteAudio(msg)
+                    }
+                }
+            }
+
+            // Señalización PTT: quién está transmitiendo / quién soltó el botón
+            launch {
+                incomingPtt.collect { event ->
+                    if (event.sender_flippy_id == _uiState.value.userProfile.id) return@collect
+                    when (event.event_type) {
+                        "start" -> {
+                            _uiState.update { it.copy(isIncoming = true, incomingSenderName = event.sender_name) }
+                            SoundEffects.playIncomingAlert()
+                        }
+                        "end" -> {
+                            _uiState.update { it.copy(isIncoming = false) }
+                            SoundEffects.playRogerBeep()
+                        }
+                    }
+                }
+            }
+
+            // Carga inicial de datos persistidos en la nube
+            launch { registerProfileInSupabase() }
+            launch { loadChannelsFromSupabase() }
+            launch { loadContactsFromSupabase() }
+            launch { loadMessageHistoryFromSupabase() }
+        }
+    }
+
+    private suspend fun registerProfileInSupabase() {
+        val p = _uiState.value.userProfile
+        try {
+            SupabaseRepository.getOrCreateProfile(p.id, p.username, p.avatar)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private suspend fun loadChannelsFromSupabase() {
+        try {
+            val remote = SupabaseRepository.fetchChannels().map { it.toChannel() }
+            if (remote.isEmpty()) return
+            _uiState.update { state ->
+                val knownIds = state.channels.map { it.id }.toSet()
+                state.copy(channels = state.channels + remote.filter { it.id !in knownIds })
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private suspend fun loadContactsFromSupabase() {
+        try {
+            val me = _uiState.value.userProfile.id
+            val rows = SupabaseRepository.fetchContacts().filter { it.owner_flippy_id == me }
+            if (rows.isEmpty()) return
+            val profiles = SupabaseRepository.fetchProfiles()
+            val users = rows.map { row ->
+                profiles.firstOrNull { it.flippy_id == row.contact_flippy_id }?.toUser()
+                    ?: User(
+                        id = row.contact_flippy_id,
+                        username = "Operador-${row.contact_flippy_id.takeLast(4)}",
+                        avatar = "🦊"
+                    )
+            }
+            _uiState.update { state ->
+                val knownIds = state.contacts.map { it.id }.toSet()
+                state.copy(contacts = state.contacts + users.filter { it.id !in knownIds })
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private suspend fun loadMessageHistoryFromSupabase() {
+        try {
+            val history = SupabaseRepository.fetchMessages(50).map { it.toVoiceMessage() }
+            if (history.isEmpty()) return
+            _uiState.update { state ->
+                val knownIds = state.messages.map { it.id }.toSet()
+                state.copy(messages = state.messages + history.filter { it.id !in knownIds })
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // ============================================================
+    //  Fallback: WebSocket local (backend/server.js)
+    // ============================================================
+
+    private fun startWebSocketFallback() {
         webSocketClient.connect(_uiState.value.serverUrl)
 
-        // Listen for socket events
+        viewModelScope.launch {
+            webSocketClient.isConnected.collect { _isConnected.value = it }
+        }
+
         viewModelScope.launch {
             webSocketClient.events.collect { event ->
                 when (event) {
@@ -124,21 +276,20 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // ============================================================
+    //  PTT: transmitir voz (Supabase Storage + tabla, o WebSocket)
+    // ============================================================
+
     fun startPtt() {
         if (_uiState.value.isRecording) return
         _uiState.update { it.copy(isRecording = true, recordDurationSec = 0f) }
 
         audioRecorder.startRecording(_uiState.value.selectedFilter)
 
-        val targetType = if (_uiState.value.isChannelMode) "channel" else "direct"
-        val targetId = if (_uiState.value.isChannelMode) _uiState.value.activeChannel.id else _uiState.value.activeContact?.id ?: ""
+        val targetType = currentTargetType()
+        val targetId = currentTargetId()
 
-        webSocketClient.sendPttStart(
-            _uiState.value.userProfile.username,
-            _uiState.value.userProfile.avatar,
-            targetType,
-            targetId
-        )
+        sendPttEvent("start", targetType, targetId)
 
         val startT = System.currentTimeMillis()
         durationTimerJob = viewModelScope.launch {
@@ -159,35 +310,91 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         durationTimerJob?.cancel()
         _uiState.update { it.copy(isRecording = false) }
 
-        val targetType = if (_uiState.value.isChannelMode) "channel" else "direct"
-        val targetId = if (_uiState.value.isChannelMode) _uiState.value.activeChannel.id else _uiState.value.activeContact?.id ?: ""
+        val targetType = currentTargetType()
+        val targetId = currentTargetId()
 
-        webSocketClient.sendPttEnd(targetType, targetId)
+        sendPttEvent("end", targetType, targetId)
 
         viewModelScope.launch {
-            val audioResult = audioRecorder.stopRecording(_uiState.value.selectedFilter)
-            if (audioResult != null) {
-                val newMsg = VoiceMessage(
-                    id = "msg-${System.currentTimeMillis()}",
-                    senderId = _uiState.value.userProfile.id,
-                    senderName = _uiState.value.userProfile.username,
-                    senderAvatar = _uiState.value.userProfile.avatar,
-                    targetType = targetType,
-                    targetId = targetId,
-                    audioBase64 = audioResult.base64Audio,
-                    duration = audioResult.duration,
-                    filter = _uiState.value.selectedFilter.id,
-                    transcription = "Transmisión de voz recibida. 10-4 cambio."
-                )
+            val audioResult = audioRecorder.stopRecording(_uiState.value.selectedFilter) ?: return@launch
 
-                _uiState.update { it.copy(messages = listOf(newMsg) + it.messages) }
-                webSocketClient.sendVoiceMessage(newMsg)
+            val profile = _uiState.value.userProfile
+            val msgId = "msg-${System.currentTimeMillis()}"
 
-                // If target is bot or general channel, simulate bot reply after 1.5s
-                if (targetId == "FLIP-BOT" || targetId == "ch-general") {
-                    delay(1400)
-                    simulateBotReply(targetType, targetId)
+            // Subir el audio a Supabase Storage (bucket público flippy-audio)
+            var storagePath: String? = null
+            if (useSupabase) {
+                storagePath = try {
+                    val path = "${profile.id}/$msgId.wav"
+                    SupabaseRepository.uploadAudio(path, audioResult.wavBytes)
+                    path
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
                 }
+            }
+
+            val newMsg = VoiceMessage(
+                id = msgId,
+                senderId = profile.id,
+                senderName = profile.username,
+                senderAvatar = profile.avatar,
+                targetType = targetType,
+                targetId = targetId,
+                audioBase64 = audioResult.base64Audio, // reproducción local inmediata
+                audioUrl = storagePath,                // path en Storage para los demás dispositivos
+                duration = audioResult.duration,
+                filter = _uiState.value.selectedFilter.id,
+                transcription = "Transmisión de voz recibida. 10-4 cambio."
+            )
+
+            _uiState.update { it.copy(messages = listOf(newMsg) + it.messages) }
+
+            if (useSupabase) {
+                try {
+                    SupabaseRepository.insertMessage(newMsg.toDto())
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            } else {
+                webSocketClient.sendVoiceMessage(newMsg)
+            }
+
+            // If target is bot or general channel, simulate bot reply after 1.5s
+            if (targetId == "FLIP-BOT" || targetId == "ch-general") {
+                delay(1400)
+                simulateBotReply(targetType, targetId)
+            }
+        }
+    }
+
+    private fun currentTargetType(): String =
+        if (_uiState.value.isChannelMode) "channel" else "direct"
+
+    private fun currentTargetId(): String =
+        if (_uiState.value.isChannelMode) _uiState.value.activeChannel.id
+        else _uiState.value.activeContact?.id ?: ""
+
+    private fun sendPttEvent(eventType: String, targetType: String, targetId: String) {
+        val profile = _uiState.value.userProfile
+        if (useSupabase) {
+            viewModelScope.launch {
+                SupabaseRepository.insertPttEvent(
+                    PttEventDto(
+                        event_type = eventType,
+                        sender_flippy_id = profile.id,
+                        sender_name = profile.username,
+                        sender_avatar = profile.avatar,
+                        target_type = targetType,
+                        target_id = targetId
+                    )
+                )
+            }
+        } else {
+            if (eventType == "start") {
+                webSocketClient.sendPttStart(profile.username, profile.avatar, targetType, targetId)
+            } else {
+                webSocketClient.sendPttEnd(targetType, targetId)
             }
         }
     }
@@ -257,19 +464,61 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             isPublic = pin.isNullOrEmpty()
         )
         _uiState.update { it.copy(channels = it.channels + newChan) }
+
+        if (useSupabase) {
+            viewModelScope.launch {
+                try {
+                    SupabaseRepository.insertChannel(
+                        ChannelDto(
+                            id = newChan.id,
+                            name = newChan.name,
+                            frequency = newChan.frequency,
+                            description = newChan.description,
+                            icon = newChan.icon,
+                            is_public = newChan.isPublic,
+                            pin = newChan.pin
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
         selectChannel(newChan)
     }
 
     fun addContactById(id: String) {
-        if (_uiState.value.contacts.any { it.id.equals(id, ignoreCase = true) }) return
-        val newContact = User(
-            id = id.uppercase(),
-            username = "Operador-${id.takeLast(4)}",
-            avatar = "🦊",
-            status = UserStatus.ONLINE
-        )
-        _uiState.update { it.copy(contacts = it.contacts + newContact) }
-        SoundEffects.playIncomingAlert()
+        val cleanId = id.trim().uppercase()
+        if (cleanId.isEmpty()) return
+        if (_uiState.value.contacts.any { it.id.equals(cleanId, ignoreCase = true) }) return
+
+        viewModelScope.launch {
+            var newContact = User(
+                id = cleanId,
+                username = "Operador-${cleanId.takeLast(4)}",
+                avatar = "🦊",
+                status = UserStatus.ONLINE
+            )
+            if (useSupabase) {
+                try {
+                    // Si el operador existe en la nube, usamos su perfil real
+                    val profile = SupabaseRepository.fetchProfile(cleanId)
+                    if (profile != null) newContact = profile.toUser()
+                    SupabaseRepository.insertContact(
+                        ContactDto(
+                            owner_flippy_id = _uiState.value.userProfile.id,
+                            contact_flippy_id = cleanId
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            val contact = newContact
+            _uiState.update { it.copy(contacts = it.contacts + contact) }
+            SoundEffects.playIncomingAlert()
+        }
     }
 
     fun updateServerUrl(newUrl: String) {
@@ -277,13 +526,49 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         if (cleanUrl.isNotEmpty()) {
             prefs.edit().putString("server_url", cleanUrl).apply()
             _uiState.update { it.copy(serverUrl = cleanUrl) }
-            webSocketClient.connect(cleanUrl)
+            if (!useSupabase) {
+                webSocketClient.connect(cleanUrl)
+            }
         }
     }
 
+    // ============================================================
+    //  Reproducción (local en Base64 o remota desde Supabase Storage)
+    // ============================================================
+
     fun playMessage(msg: VoiceMessage, speed: Float = 1.0f) {
-        audioPlayer.playVoiceMessage(msg.id, msg.audioBase64, speed)
+        if (!msg.audioBase64.isNullOrEmpty()) {
+            audioPlayer.playVoiceMessage(msg.id, msg.audioBase64, speed)
+        } else {
+            playRemoteAudio(msg, speed)
+        }
     }
+
+    private fun playRemoteAudio(msg: VoiceMessage, speed: Float = 1.0f) {
+        val path = msg.audioUrl
+        if (path.isNullOrBlank()) {
+            audioPlayer.playVoiceMessage(msg.id, null, speed) // Roger beep fallback
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val bytes = SupabaseRepository.downloadAudio(storagePathFrom(path))
+                val base64 = "data:audio/wav;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
+                audioPlayer.playVoiceMessage(msg.id, base64, speed)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                SoundEffects.playRogerBeep()
+            }
+        }
+    }
+
+    /** Acepta un path relativo del bucket o una URL pública completa. */
+    private fun storagePathFrom(pathOrUrl: String): String =
+        if (pathOrUrl.startsWith("http")) {
+            pathOrUrl.substringAfter("/${SupabaseRepository.AUDIO_BUCKET}/")
+        } else {
+            pathOrUrl
+        }
 
     fun stopPlayback() {
         audioPlayer.stop()
@@ -308,5 +593,6 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         super.onCleared()
         audioPlayer.stop()
         webSocketClient.disconnect()
+        // La conexión Realtime de Supabase es un singleton a nivel app: se mantiene viva.
     }
 }

@@ -20,17 +20,18 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 // ============================================================
-//  DTOs: coinciden con las tablas creadas en Supabase
-//  (los campos con valor por defecto no se envÃ­an al insertar)
+//  DTOs: coinciden con las tablas de Supabase (ver supabase/schema.sql)
 // ============================================================
 
 @Serializable
 data class ProfileDto(
     val flippy_id: String,
     val username: String,
-    val avatar: String = "ðŸ“»",
+    val avatar: String = "📻",
     val created_at: String? = null
 )
 
@@ -55,10 +56,10 @@ data class ContactDto(
 
 @Serializable
 data class VoiceMessageDto(
-    val id: String = "",
+    val id: String? = null,
     val sender_flippy_id: String,
     val sender_name: String,
-    val sender_avatar: String = "ðŸ“»",
+    val sender_avatar: String = "📻",
     val target_type: String = "channel",
     val target_id: String = "ch-general",
     val audio_url: String? = null,
@@ -73,7 +74,7 @@ data class PttEventDto(
     val event_type: String, // "start" | "end"
     val sender_flippy_id: String,
     val sender_name: String,
-    val sender_avatar: String = "ðŸ“»",
+    val sender_avatar: String = "📻",
     val target_type: String = "channel",
     val target_id: String = "ch-general",
     val created_at: String? = null
@@ -91,7 +92,7 @@ fun ProfileDto.toUser(): User = User(
 )
 
 fun ChannelDto.toChannel(): Channel = Channel(
-    id = id ?: "ch-${name.hashCode()}",
+    id = id?.takeIf { it.isNotBlank() } ?: "ch-${name.hashCode()}",
     name = name,
     frequency = frequency,
     description = description,
@@ -101,7 +102,7 @@ fun ChannelDto.toChannel(): Channel = Channel(
 )
 
 fun VoiceMessageDto.toVoiceMessage(): VoiceMessage = VoiceMessage(
-    id = id.ifBlank { "msg-${created_at.hashCode()}" },
+    id = id?.takeIf { it.isNotBlank() } ?: "msg-${(created_at ?: "").hashCode()}",
     senderId = sender_flippy_id,
     senderName = sender_name,
     senderAvatar = sender_avatar,
@@ -114,7 +115,6 @@ fun VoiceMessageDto.toVoiceMessage(): VoiceMessage = VoiceMessage(
 )
 
 fun VoiceMessage.toDto(): VoiceMessageDto = VoiceMessageDto(
-    id = id,
     sender_flippy_id = senderId,
     sender_name = senderName,
     sender_avatar = senderAvatar,
@@ -127,10 +127,12 @@ fun VoiceMessage.toDto(): VoiceMessageDto = VoiceMessageDto(
 )
 
 // ============================================================
-//  Repositorio: toda la comunicaciÃ³n con Supabase
+//  Repositorio: toda la comunicación con Supabase
 // ============================================================
 
 object SupabaseRepository {
+
+    const val AUDIO_BUCKET = "flippy-audio"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -156,30 +158,39 @@ object SupabaseRepository {
     fun isConfigured(): Boolean =
         BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
 
-    // ---------- ConexiÃ³n Realtime ----------
+    // ---------- Conexión Realtime ----------
 
-    suspend fun connectRealtime() {
-        try {
+    suspend fun connectRealtime(): Boolean {
+        return try {
             supabase.realtime.connect()
             messagesChannel.subscribe()
             pttChannel.subscribe()
+            true
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
     // ---------- Perfiles ----------
 
     suspend fun getOrCreateProfile(flippyId: String, username: String, avatar: String): ProfileDto {
-        val existing = supabase.postgrest.from("profiles")
+        val existing = fetchProfile(flippyId)
+        if (existing != null) return existing
+        val payload = buildJsonObject {
+            put("flippy_id", flippyId)
+            put("username", username)
+            put("avatar", avatar)
+        }
+        supabase.postgrest.from("profiles").insert(payload)
+        return ProfileDto(flippy_id = flippyId, username = username, avatar = avatar)
+    }
+
+    suspend fun fetchProfile(flippyId: String): ProfileDto? =
+        supabase.postgrest.from("profiles")
             .select()
             .decodeList<ProfileDto>()
             .firstOrNull { it.flippy_id == flippyId }
-        if (existing != null) return existing
-        val dto = ProfileDto(flippy_id = flippyId, username = username, avatar = avatar)
-        supabase.postgrest.from("profiles").insert(dto)
-        return dto
-    }
 
     suspend fun fetchProfiles(): List<ProfileDto> =
         supabase.postgrest.from("profiles").select().decodeList()
@@ -189,21 +200,37 @@ object SupabaseRepository {
     suspend fun fetchChannels(): List<ChannelDto> =
         supabase.postgrest.from("channels").select().decodeList()
 
-    suspend fun insertChannel(channel: ChannelDto) {
-        supabase.postgrest.from("channels").insert(channel)
+    suspend fun insertChannel(dto: ChannelDto) {
+        val payload = buildJsonObject {
+            put("id", dto.id ?: "ch-${System.currentTimeMillis()}")
+            put("name", dto.name)
+            put("frequency", dto.frequency)
+            put("description", dto.description)
+            put("icon", dto.icon)
+            put("is_public", dto.is_public)
+            dto.pin?.let { put("pin", it) }
+        }
+        supabase.postgrest.from("channels").insert(payload)
     }
 
     // ---------- Contactos ----------
 
+    suspend fun fetchContacts(): List<ContactDto> =
+        supabase.postgrest.from("contacts").select().decodeList()
+
     suspend fun insertContact(contact: ContactDto) {
         try {
-            supabase.postgrest.from("contacts").insert(contact)
+            val payload = buildJsonObject {
+                put("owner_flippy_id", contact.owner_flippy_id)
+                put("contact_flippy_id", contact.contact_flippy_id)
+            }
+            supabase.postgrest.from("contacts").insert(payload)
         } catch (e: Exception) {
-            // ya existe o error de red: no es crÃ­tico
+            // Ya existe o error de red: no es crítico
         }
     }
 
-    // ---------- Mensajes ----------
+    // ---------- Mensajes de voz ----------
 
     suspend fun fetchMessages(limit: Int = 50): List<VoiceMessageDto> =
         supabase.postgrest.from("voice_messages")
@@ -213,32 +240,52 @@ object SupabaseRepository {
             .take(limit)
 
     suspend fun insertMessage(message: VoiceMessageDto) {
-        supabase.postgrest.from("voice_messages").insert(message)
+        // Solo se envían los campos propios del cliente; id y created_at los genera la BD
+        val payload = buildJsonObject {
+            put("sender_flippy_id", message.sender_flippy_id)
+            put("sender_name", message.sender_name)
+            put("sender_avatar", message.sender_avatar)
+            put("target_type", message.target_type)
+            put("target_id", message.target_id)
+            message.audio_url?.let { put("audio_url", it) }
+            put("duration", message.duration)
+            put("filter", message.filter)
+            put("transcription", message.transcription)
+        }
+        supabase.postgrest.from("voice_messages").insert(payload)
     }
 
-    // ---------- Eventos PTT ----------
+    // ---------- Eventos PTT (señalización TX/RX) ----------
 
     suspend fun insertPttEvent(event: PttEventDto) {
         try {
-            supabase.postgrest.from("ptt_events").insert(event)
+            val payload = buildJsonObject {
+                put("event_type", event.event_type)
+                put("sender_flippy_id", event.sender_flippy_id)
+                put("sender_name", event.sender_name)
+                put("sender_avatar", event.sender_avatar)
+                put("target_type", event.target_type)
+                put("target_id", event.target_id)
+            }
+            supabase.postgrest.from("ptt_events").insert(payload)
         } catch (e: Exception) {
-            // no crÃ­tico: es solo el aviso de TX/RX
+            // No crítico: es solo el aviso de transmisión entrante
         }
     }
 
     // ---------- Audio (Storage) ----------
 
     suspend fun uploadAudio(path: String, bytes: ByteArray) {
-        supabase.storage["flippy-audio"].upload(path, bytes, upsert = true)
+        supabase.storage[AUDIO_BUCKET].upload(path, bytes, upsert = true)
     }
 
     suspend fun downloadAudio(path: String): ByteArray =
-        supabase.storage["flippy-audio"].downloadPublic(path) ?: byteArrayOf()
+        supabase.storage[AUDIO_BUCKET].downloadPublic(path) ?: byteArrayOf()
 
     fun publicAudioUrl(path: String): String =
-        "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/flippy-audio/$path"
+        "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/$AUDIO_BUCKET/$path"
 
-    // ---------- Observadores Realtime ----------
+    // ---------- Observadores Realtime (INSERT en tablas) ----------
 
     fun observeMessages(): Flow<VoiceMessageDto> =
         messagesChannel
