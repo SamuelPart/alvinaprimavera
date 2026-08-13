@@ -6,6 +6,14 @@ import com.flippy.walkietalkie.data.model.Channel
 import com.flippy.walkietalkie.data.model.User
 import com.flippy.walkietalkie.data.model.UserStatus
 import com.flippy.walkietalkie.data.model.VoiceMessage
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Email
+import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.providers.IDToken
+import io.github.jan.supabase.auth.providers.OtpType
+import io.github.jan.supabase.auth.providers.Phone
+import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
@@ -17,6 +25,7 @@ import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -142,6 +151,7 @@ object SupabaseRepository {
             supabaseUrl = BuildConfig.SUPABASE_URL,
             supabaseKey = BuildConfig.SUPABASE_ANON_KEY
         ) {
+            install(Auth)
             install(Postgrest)
             install(Realtime)
             install(Storage)
@@ -158,6 +168,45 @@ object SupabaseRepository {
 
     fun isConfigured(): Boolean =
         BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
+
+    // ---------- Autenticación (Supabase Auth) ----------
+
+    /** Estado de la sesión (se persiste solo en el dispositivo entre arranques). */
+    val sessionStatus: StateFlow<SessionStatus> get() = supabase.auth.sessionStatus
+
+    /** Envía un código de 6 dígitos al correo (Email OTP). */
+    suspend fun sendEmailCode(email: String) {
+        supabase.auth.signInWith(Email) {
+            this.email = email
+        }
+    }
+
+    suspend fun verifyEmailCode(email: String, code: String) {
+        supabase.auth.verifyEmailOtp(OtpType.Email.EMAIL, email, code)
+    }
+
+    /** Envía un SMS con código (requiere proveedor SMS configurado en Supabase). */
+    suspend fun sendPhoneCode(phone: String) {
+        supabase.auth.signInWith(Phone) {
+            this.phone = phone
+        }
+    }
+
+    suspend fun verifyPhoneCode(phone: String, code: String) {
+        supabase.auth.verifyPhoneOtp(OtpType.Phone.SMS, phone, code)
+    }
+
+    /** Login con el ID token nativo de Google (Android Credential Manager). */
+    suspend fun signInWithGoogleToken(idToken: String) {
+        supabase.auth.signInWith(IDToken) {
+            provider = Google
+            this.idToken = idToken
+        }
+    }
+
+    suspend fun signOut() {
+        supabase.auth.signOut()
+    }
 
     // ---------- Conexión Realtime ----------
 

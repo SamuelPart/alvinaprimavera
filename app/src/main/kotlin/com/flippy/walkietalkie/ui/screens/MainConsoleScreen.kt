@@ -32,6 +32,7 @@ fun MainConsoleScreen(
     onOpenQr: () -> Unit,
     onOpenScanner: () -> Unit,
     onUpdateServerUrl: (String) -> Unit = {},
+    onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showServerDialog by remember { mutableStateOf(false) }
@@ -79,6 +80,13 @@ fun MainConsoleScreen(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(onClick = onLogout) {
+                    Icon(
+                        imageVector = Icons.Default.Logout,
+                        contentDescription = "Cerrar sesión",
+                        tint = RecordRed
+                    )
+                }
                 IconButton(onClick = { showServerDialog = true }) {
                     Icon(
                         imageVector = Icons.Default.Settings,

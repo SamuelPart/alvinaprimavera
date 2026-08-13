@@ -14,6 +14,7 @@ val localProperties = Properties().apply {
 }
 val supabaseUrl: String = localProperties.getProperty("supabase.url", "").replace("\"", "\\\"")
 val supabaseAnonKey: String = localProperties.getProperty("supabase.anon_key", "").replace("\"", "\\\"")
+val googleWebClientId: String = localProperties.getProperty("google.web_client_id", "").replace("\"", "\\\"")
 
 android {
     namespace = "com.flippy.walkietalkie"
@@ -33,6 +34,7 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -106,8 +108,14 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
+    implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.ktor:ktor-client-okhttp:2.3.12")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+
+    // Google Sign-In moderno (Credential Manager) para Supabase Auth
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
