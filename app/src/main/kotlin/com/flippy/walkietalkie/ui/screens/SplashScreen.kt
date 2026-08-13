@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.ui.theme.Accent
 import com.flippy.walkietalkie.ui.theme.TextSecondary
-import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.gotrue.SessionStatus
 import kotlinx.coroutines.delay
 
 @Composable

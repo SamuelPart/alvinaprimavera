@@ -29,7 +29,7 @@ import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.AuthViewModel
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.gotrue.SessionStatus
 import kotlinx.coroutines.launch
 
 // ============================================================
