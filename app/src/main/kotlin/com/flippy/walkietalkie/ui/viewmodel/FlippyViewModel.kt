@@ -114,6 +114,10 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                     is SocketEvent.LatencyUpdated -> {
                         _uiState.update { it.copy(pingMs = event.pingMs) }
                     }
+                    is SocketEvent.Disconnected -> {
+                        // Reset RX state to avoid getting stuck "receiving" after a drop
+                        _uiState.update { it.copy(isIncoming = false) }
+                    }
                     else -> {}
                 }
             }
@@ -279,6 +283,10 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playMessage(msg: VoiceMessage, speed: Float = 1.0f) {
         audioPlayer.playVoiceMessage(msg.id, msg.audioBase64, speed)
+    }
+
+    fun stopPlayback() {
+        audioPlayer.stop()
     }
 
     fun generateQrBitmap(content: String, size: Int = 512): Bitmap? {

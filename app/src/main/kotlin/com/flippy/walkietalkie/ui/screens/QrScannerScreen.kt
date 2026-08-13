@@ -111,6 +111,26 @@ fun QrScannerScreen(
                     .size(180.dp)
                     .border(2.dp, NeonEmerald.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
             )
+
+            if (hasCameraError) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "📷",
+                        fontSize = 28.sp
+                    )
+                    Text(
+                        text = "No se pudo abrir la cámara.\nConcede el permiso de cámara o usa la opción manual.",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        color = TextWhite,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
         }
 
         Text(

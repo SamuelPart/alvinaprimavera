@@ -27,6 +27,7 @@ fun HistoryScreen(
     messages: List<VoiceMessage>,
     currentPlayingId: String?,
     onPlayMessage: (VoiceMessage) -> Unit,
+    onStopPlayback: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -152,7 +153,7 @@ fun HistoryScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             IconButton(
-                                onClick = { onPlayMessage(msg) },
+                                onClick = { if (isPlaying) onStopPlayback() else onPlayMessage(msg) },
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(RoundedCornerShape(18.dp))

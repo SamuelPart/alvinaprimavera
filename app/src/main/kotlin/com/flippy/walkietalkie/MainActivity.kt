@@ -206,7 +206,8 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel) {
                 HistoryScreen(
                     messages = uiState.messages,
                     currentPlayingId = currentPlayingId,
-                    onPlayMessage = { viewModel.playMessage(it) }
+                    onPlayMessage = { viewModel.playMessage(it) },
+                    onStopPlayback = { viewModel.stopPlayback() }
                 )
             }
 
