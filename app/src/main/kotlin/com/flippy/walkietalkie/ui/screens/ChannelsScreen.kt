@@ -182,6 +182,12 @@ fun ChannelsScreen(
                         singleLine = true
                     )
                     OutlinedTextField(
+                        value = channelDesc,
+                        onValueChange = { channelDesc = it },
+                        label = { Text("Descripción (opcional)") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
                         value = channelPin,
                         onValueChange = { channelPin = it },
                         label = { Text("PIN de seguridad (opcional)") },
@@ -197,6 +203,7 @@ fun ChannelsScreen(
                             showDialog = false
                             channelName = ""
                             channelFreq = ""
+                            channelDesc = ""
                             channelPin = ""
                         }
                     },

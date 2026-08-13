@@ -15,6 +15,23 @@ const PORT = process.env.PORT || 3000;
 // Connected clients
 const clients = new Set();
 
+// Heartbeat interval to clean up dead connections
+const HEARTBEAT_INTERVAL_MS = 30000;
+const heartbeat = setInterval(() => {
+  for (const ws of clients) {
+    if (ws.isAlive === false) {
+      console.log('[Flippy Radio] Terminando conexión muerta');
+      ws.terminate();
+      clients.delete(ws);
+      continue;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  }
+}, HEARTBEAT_INTERVAL_MS);
+
+heartbeat.unref?.();
+
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -27,7 +44,12 @@ app.get('/health', (req, res) => {
 
 wss.on('connection', (ws) => {
   clients.add(ws);
+  ws.isAlive = true;
   console.log(`[Flippy Radio] Cliente conectado. Total activos: ${clients.size}`);
+
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   ws.on('message', (messageBuffer) => {
     try {
