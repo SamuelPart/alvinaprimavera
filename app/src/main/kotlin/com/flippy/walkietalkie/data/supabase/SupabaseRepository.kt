@@ -1,5 +1,6 @@
 package com.flippy.walkietalkie.data.supabase
 
+import android.util.Log
 import com.flippy.walkietalkie.BuildConfig
 import com.flippy.walkietalkie.data.model.Channel
 import com.flippy.walkietalkie.data.model.User
@@ -167,7 +168,7 @@ object SupabaseRepository {
             pttChannel.subscribe()
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("Flippy", "No se pudo conectar Realtime de Supabase", e)
             false
         }
     }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.util.Base64
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.flippy.walkietalkie.audio.*
@@ -60,6 +61,8 @@ data class FlippyUiState(
 
 class FlippyViewModel(application: Application) : AndroidViewModel(application) {
 
+    private companion object { const val TAG = "Flippy" }
+
     private val audioRecorder = AudioRecorder()
     private val audioPlayer = AudioPlayer(application)
     private val webSocketClient = WebSocketClient()
@@ -95,7 +98,14 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.value.activeChannel.frequency
         )
 
-        if (useSupabase) startSupabaseBackend() else startWebSocketFallback()
+        if (useSupabase) {
+            Log.i(TAG, "Backend: SUPABASE (nube) ✅")
+            startSupabaseBackend()
+        } else {
+            Log.w(TAG, "Backend: WebSocket LOCAL — Supabase sin configurar. " +
+                "Revisa supabase.url y supabase.anon_key en local.properties (raíz del proyecto)")
+            startWebSocketFallback()
+        }
     }
 
     /** ID Flippy estable por dispositivo: se genera una vez y se guarda en prefs. */
@@ -132,11 +142,13 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             val incomingPtt = SupabaseRepository.observePttEvents()
 
             _isConnected.value = SupabaseRepository.connectRealtime()
+            Log.i(TAG, "Realtime conectado = ${_isConnected.value}")
 
             // Transmisiones entrantes de otros operadores en tiempo real
             launch {
                 incomingMessages.collect { dto ->
                     if (dto.sender_flippy_id == _uiState.value.userProfile.id) return@collect
+                    Log.i(TAG, "📥 Mensaje entrante de ${dto.sender_name} (${dto.target_id})")
                     val msg = dto.toVoiceMessage()
                     _uiState.update {
                         it.copy(isIncoming = false, messages = listOf(msg) + it.messages)
@@ -151,6 +163,7 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             launch {
                 incomingPtt.collect { event ->
                     if (event.sender_flippy_id == _uiState.value.userProfile.id) return@collect
+                    Log.i(TAG, "🎙️ PTT ${event.event_type} de ${event.sender_name}")
                     when (event.event_type) {
                         "start" -> {
                             _uiState.update { it.copy(isIncoming = true, incomingSenderName = event.sender_name) }
@@ -176,8 +189,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         val p = _uiState.value.userProfile
         try {
             SupabaseRepository.getOrCreateProfile(p.id, p.username, p.avatar)
+            Log.i(TAG, "Perfil registrado en Supabase: ${p.id} (${p.username})")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error registrando perfil en Supabase (¿ejecutaste schema.sql?)", e)
         }
     }
 
@@ -189,8 +203,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 val knownIds = state.channels.map { it.id }.toSet()
                 state.copy(channels = state.channels + remote.filter { it.id !in knownIds })
             }
+            Log.i(TAG, "Canales desde Supabase: ${remote.size}")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error cargando canales de Supabase", e)
         }
     }
 
@@ -212,8 +227,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 val knownIds = state.contacts.map { it.id }.toSet()
                 state.copy(contacts = state.contacts + users.filter { it.id !in knownIds })
             }
+            Log.i(TAG, "Contactos desde Supabase: ${users.size}")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error cargando contactos de Supabase", e)
         }
     }
 
@@ -225,8 +241,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 val knownIds = state.messages.map { it.id }.toSet()
                 state.copy(messages = state.messages + history.filter { it.id !in knownIds })
             }
+            Log.i(TAG, "Historial desde Supabase: ${history.size} mensajes")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error cargando historial de Supabase", e)
         }
     }
 
@@ -316,7 +333,11 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         sendPttEvent("end", targetType, targetId)
 
         viewModelScope.launch {
-            val audioResult = audioRecorder.stopRecording(_uiState.value.selectedFilter) ?: return@launch
+            val audioResult = audioRecorder.stopRecording(_uiState.value.selectedFilter)
+            if (audioResult == null) {
+                Log.w(TAG, "Grabación muy corta (<0.3s) o sin permiso de micrófono: no se envía nada")
+                return@launch
+            }
 
             val profile = _uiState.value.userProfile
             val msgId = "msg-${System.currentTimeMillis()}"
@@ -327,9 +348,10 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 storagePath = try {
                     val path = "${profile.id}/$msgId.wav"
                     SupabaseRepository.uploadAudio(path, audioResult.wavBytes)
+                    Log.i(TAG, "Audio subido a Storage: $path (${audioResult.wavBytes.size} bytes)")
                     path
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Fallo al subir audio (¿existe el bucket público 'flippy-audio'?)", e)
                     null
                 }
             }
@@ -353,8 +375,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             if (useSupabase) {
                 try {
                     SupabaseRepository.insertMessage(newMsg.toDto())
+                    Log.i(TAG, "Mensaje insertado en voice_messages ✅ (target=$targetId)")
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Fallo al insertar en voice_messages (¿ejecutaste schema.sql?)", e)
                 }
             } else {
                 webSocketClient.sendVoiceMessage(newMsg)
