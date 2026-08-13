@@ -8,14 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -29,10 +27,10 @@ import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.FlippyViewModel
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Ptt : Screen("ptt", "PTT", Icons.Default.Radio)
+    object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
     object Channels : Screen("channels", "Canales", Icons.Default.CellTower)
     object Contacts : Screen("contacts", "Amigos", Icons.Default.People)
-    object History : Screen("history", "Audios", Icons.Default.FormatListBulleted)
+    object History : Screen("history", "Audios", Icons.Default.GraphicEq)
     object QrProfile : Screen("qr_profile", "Mi QR", Icons.Default.QrCode)
     object QrScanner : Screen("qr_scanner", "Escanear", Icons.Default.QrCodeScanner)
 }
@@ -54,7 +52,7 @@ class MainActivity : ComponentActivity() {
             FlippyTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = BlackBackground
+                    color = Background
                 ) {
                     FlippyAppNavigation(viewModel)
                 }
@@ -70,9 +68,9 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingDeepLink(intent: android.content.Intent?) {
         val data = intent?.data ?: return
         // Handle flippy://connect?id=FLIP-XXXX
-        val contactId = data.getQueryParameter("id") 
+        val contactId = data.getQueryParameter("id")
             ?: data.lastPathSegment // For https://flippy.app/connect/FLIP-XXXX
-        
+
         if (!contactId.isNullOrEmpty() && contactId.startsWith("FLIP-", ignoreCase = true)) {
             viewModel.addContactById(contactId.uppercase())
         }
@@ -118,12 +116,13 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel) {
     val showBottomBar = currentRoute in bottomNavItems.map { it.route }
 
     Scaffold(
+        containerColor = Background,
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = PanelBackground,
-                    contentColor = TextWhite,
-                    tonalElevation = 8.dp
+                    containerColor = Surface,
+                    contentColor = TextPrimary,
+                    tonalElevation = 0.dp
                 ) {
                     bottomNavItems.forEach { screen ->
                         val selected = currentRoute == screen.route
@@ -141,11 +140,11 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel) {
                                 }
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = BlackBackground,
-                                selectedTextColor = NeonEmerald,
-                                indicatorColor = NeonEmerald,
-                                unselectedIconColor = TextGray,
-                                unselectedTextColor = TextGray
+                                selectedIconColor = Accent,
+                                selectedTextColor = Accent,
+                                indicatorColor = AccentContainer,
+                                unselectedIconColor = TextSecondary,
+                                unselectedTextColor = TextSecondary
                             )
                         )
                     }
