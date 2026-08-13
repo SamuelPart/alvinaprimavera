@@ -49,10 +49,12 @@ El proyecto está estructurado con **Gradle Kotlin DSL (`build.gradle.kts`)** pa
 Toda la app funciona sobre Supabase cuando hay credenciales configuradas. El código ya está listo (`SupabaseRepository.kt` + `FlippyViewModel.kt`); solo falta tu proyecto en la nube:
 
 1. **Crea un proyecto** gratis en [supabase.com](https://supabase.com).
-2. **Crea las tablas, el bucket y Realtime:** en tu proyecto abre **SQL Editor → New query**, pega el contenido de [`supabase/schema.sql`](supabase/schema.sql) y pulsa **Run**. Esto crea:
+2. **Crea las tablas, el bucket y Realtime:** en tu proyecto abre **SQL Editor → New query**, pega el contenido **completo** de [`supabase/schema.sql`](supabase/schema.sql) y pulsa **Run**. Esto crea:
    - Tablas: `profiles`, `channels`, `contacts`, `voice_messages`, `ptt_events`
    - Bucket público de Storage: `flippy-audio`
    - Publicación Realtime para `voice_messages` y `ptt_events`
+
+   > ⚠️ Si tu proyecto ya tenía tablas viejas de Flippy con otra estructura y el script da un error de tipo (ej. `invalid input syntax for type uuid`), ejecuta primero [`supabase/reset.sql`](supabase/reset.sql) **una sola vez** (borra las 5 tablas viejas) y luego vuelve a correr `schema.sql` completo.
 3. **Copia tus credenciales:** en **Project Settings → API** copia la **Project URL** y la **anon/public key**.
 4. **Configura `local.properties`** en la raíz del proyecto (usa [`local.properties.example`](local.properties.example) como plantilla):
    ```properties
