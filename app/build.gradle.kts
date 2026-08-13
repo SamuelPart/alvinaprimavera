@@ -1,8 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+// Lee las claves de Supabase desde local.properties (NO se sube a GitHub)
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val supabaseUrl: String = localProperties.getProperty("supabase.url", "").replace("\"", "\\\"")
+val supabaseAnonKey: String = localProperties.getProperty("supabase.anon_key", "").replace("\"", "\\\"")
 
 android {
     namespace = "com.flippy.walkietalkie"
@@ -19,6 +30,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {
@@ -39,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -85,6 +100,14 @@ dependencies {
 
     // ZXing for QR Code generation and barcode analysis
     implementation("com.google.zxing:core:3.5.3")
+
+    // ===== Supabase (base de datos, realtime y storage en la nube) =====
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.4.3"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:realtime-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
+    implementation("io.ktor:ktor-client-okhttp:2.3.12")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
