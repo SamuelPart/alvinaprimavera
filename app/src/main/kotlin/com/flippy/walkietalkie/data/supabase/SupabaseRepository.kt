@@ -23,14 +23,14 @@ import kotlinx.serialization.json.Json
 
 // ============================================================
 //  DTOs: coinciden con las tablas creadas en Supabase
-//  (los campos con valor por defecto no se envían al insertar)
+//  (los campos con valor por defecto no se envÃ­an al insertar)
 // ============================================================
 
 @Serializable
 data class ProfileDto(
     val flippy_id: String,
     val username: String,
-    val avatar: String = "📻",
+    val avatar: String = "ðŸ“»",
     val created_at: String? = null
 )
 
@@ -58,7 +58,7 @@ data class VoiceMessageDto(
     val id: String = "",
     val sender_flippy_id: String,
     val sender_name: String,
-    val sender_avatar: String = "📻",
+    val sender_avatar: String = "ðŸ“»",
     val target_type: String = "channel",
     val target_id: String = "ch-general",
     val audio_url: String? = null,
@@ -73,7 +73,7 @@ data class PttEventDto(
     val event_type: String, // "start" | "end"
     val sender_flippy_id: String,
     val sender_name: String,
-    val sender_avatar: String = "📻",
+    val sender_avatar: String = "ðŸ“»",
     val target_type: String = "channel",
     val target_id: String = "ch-general",
     val created_at: String? = null
@@ -127,7 +127,7 @@ fun VoiceMessage.toDto(): VoiceMessageDto = VoiceMessageDto(
 )
 
 // ============================================================
-//  Repositorio: toda la comunicación con Supabase
+//  Repositorio: toda la comunicaciÃ³n con Supabase
 // ============================================================
 
 object SupabaseRepository {
@@ -156,7 +156,7 @@ object SupabaseRepository {
     fun isConfigured(): Boolean =
         BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
 
-    // ---------- Conexión Realtime ----------
+    // ---------- ConexiÃ³n Realtime ----------
 
     suspend fun connectRealtime() {
         try {
@@ -199,7 +199,7 @@ object SupabaseRepository {
         try {
             supabase.postgrest.from("contacts").insert(contact)
         } catch (e: Exception) {
-            // ya existe o error de red: no es crítico
+            // ya existe o error de red: no es crÃ­tico
         }
     }
 
@@ -222,7 +222,7 @@ object SupabaseRepository {
         try {
             supabase.postgrest.from("ptt_events").insert(event)
         } catch (e: Exception) {
-            // no crítico: es solo el aviso de TX/RX
+            // no crÃ­tico: es solo el aviso de TX/RX
         }
     }
 
@@ -233,7 +233,7 @@ object SupabaseRepository {
     }
 
     suspend fun downloadAudio(path: String): ByteArray =
-        supabase.storage["flippy-audio"].download(path) ?: byteArrayOf()
+        supabase.storage["flippy-audio"].downloadPublic(path) ?: byteArrayOf()
 
     fun publicAudioUrl(path: String): String =
         "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/flippy-audio/$path"
@@ -242,7 +242,7 @@ object SupabaseRepository {
 
     fun observeMessages(): Flow<VoiceMessageDto> =
         messagesChannel
-            .postgresChangeFlow(schema = "public") { table = "voice_messages" }
+            .postgresChangeFlow<PostgresAction.Insert>(schema = "public") { table = "voice_messages" }
             .filterIsInstance<PostgresAction.Insert>()
             .map { action ->
                 json.decodeFromString<VoiceMessageDto>(action.record.toString())
@@ -250,7 +250,7 @@ object SupabaseRepository {
 
     fun observePttEvents(): Flow<PttEventDto> =
         pttChannel
-            .postgresChangeFlow(schema = "public") { table = "ptt_events" }
+            .postgresChangeFlow<PostgresAction.Insert>(schema = "public") { table = "ptt_events" }
             .filterIsInstance<PostgresAction.Insert>()
             .map { action ->
                 json.decodeFromString<PttEventDto>(action.record.toString())
