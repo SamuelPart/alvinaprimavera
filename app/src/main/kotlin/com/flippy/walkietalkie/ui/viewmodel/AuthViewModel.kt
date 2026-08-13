@@ -14,8 +14,7 @@ import kotlinx.coroutines.launch
 data class AuthUiState(
     val loading: Boolean = false,
     val error: String? = null,
-    val emailCodeSent: Boolean = false,
-    val phoneCodeSent: Boolean = false
+    val emailCodeSent: Boolean = false
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,56 +62,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 SupabaseRepository.verifyEmailCode(email.trim(), cleanCode)
-                _uiState.update { it.copy(loading = false) }
-            } catch (e: Exception) {
-                setError(friendlyAuthError(e.message))
-            }
-        }
-    }
-
-    // ------------- Teléfono (SMS OTP) -------------
-
-    fun sendPhoneCode(phone: String) {
-        val clean = phone.trim().replace(" ", "")
-        if (clean.length < 8 || !clean.startsWith("+")) {
-            setError("Escribe el número con código de país, ej: +51999888777")
-            return
-        }
-        _uiState.update { it.copy(loading = true, error = null) }
-        viewModelScope.launch {
-            try {
-                SupabaseRepository.sendPhoneCode(clean)
-                _uiState.update { it.copy(loading = false, phoneCodeSent = true) }
-            } catch (e: Exception) {
-                setError(friendlyAuthError(e.message))
-            }
-        }
-    }
-
-    fun verifyPhoneCode(phone: String, code: String) {
-        val cleanCode = code.trim()
-        if (cleanCode.length < 6) {
-            setError("El código tiene 6 dígitos")
-            return
-        }
-        _uiState.update { it.copy(loading = true, error = null) }
-        viewModelScope.launch {
-            try {
-                SupabaseRepository.verifyPhoneCode(phone.trim().replace(" ", ""), cleanCode)
-                _uiState.update { it.copy(loading = false) }
-            } catch (e: Exception) {
-                setError(friendlyAuthError(e.message))
-            }
-        }
-    }
-
-    // ------------- Google (ID token nativo de Android) -------------
-
-    fun signInWithGoogle(idToken: String) {
-        _uiState.update { it.copy(loading = true, error = null) }
-        viewModelScope.launch {
-            try {
-                SupabaseRepository.signInWithGoogleToken(idToken)
                 _uiState.update { it.copy(loading = false) }
             } catch (e: Exception) {
                 setError(friendlyAuthError(e.message))

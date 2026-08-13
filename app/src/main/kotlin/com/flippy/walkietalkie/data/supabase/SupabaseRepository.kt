@@ -10,10 +10,7 @@ import io.github.jan.supabase.gotrue.Auth
 import io.github.jan.supabase.gotrue.OtpType
 import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.gotrue.providers.Google
 import io.github.jan.supabase.gotrue.providers.builtin.Email
-import io.github.jan.supabase.gotrue.providers.builtin.IDToken
-import io.github.jan.supabase.gotrue.providers.builtin.Phone
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
@@ -183,25 +180,6 @@ object SupabaseRepository {
 
     suspend fun verifyEmailCode(email: String, code: String) {
         supabase.auth.verifyEmailOtp(OtpType.Email.EMAIL, email, code)
-    }
-
-    /** Envía un SMS con código (requiere proveedor SMS configurado en Supabase). */
-    suspend fun sendPhoneCode(phone: String) {
-        supabase.auth.signInWith(Phone) {
-            this.phone = phone
-        }
-    }
-
-    suspend fun verifyPhoneCode(phone: String, code: String) {
-        supabase.auth.verifyPhoneOtp(OtpType.Phone.SMS, phone, code)
-    }
-
-    /** Login con el ID token nativo de Google (Android Credential Manager). */
-    suspend fun signInWithGoogleToken(idToken: String) {
-        supabase.auth.signInWith(IDToken) {
-            provider = Google
-            this.idToken = idToken
-        }
     }
 
     suspend fun signOut() {

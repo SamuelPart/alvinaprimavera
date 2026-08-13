@@ -21,14 +21,3 @@ supabase.url=
 
 # Clave pública "anon" / "public API Key"
 supabase.anon_key=
-
-# ============================================================
-#  Login con Google (Supabase Auth)
-#  Google Cloud Console → APIs y servicios → Credenciales
-#  → Crea un "ID de cliente OAuth 2.0" de tipo APLICACIÓN WEB
-#  (ese MISMO client id también va en Supabase →
-#   Authentication → Providers → Google)
-# ============================================================
-
-# ej: 123456789-abcdefg.apps.googleusercontent.com
-google.web_client_id=

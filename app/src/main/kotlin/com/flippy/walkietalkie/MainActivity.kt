@@ -31,7 +31,6 @@ import com.flippy.walkietalkie.ui.viewmodel.FlippyViewModel
 private const val RouteSplash = "splash"
 private const val RouteWelcome = "welcome"
 private const val RouteEmailAuth = "email_auth"
-private const val RoutePhoneAuth = "phone_auth"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
@@ -188,7 +187,6 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                 WelcomeScreen(
                     authViewModel = authViewModel,
                     onOpenEmail = { navController.navigate(RouteEmailAuth) },
-                    onOpenPhone = { navController.navigate(RoutePhoneAuth) },
                     onAuthenticated = {
                         navController.navigate(Screen.Ptt.route) {
                             popUpTo(0) { inclusive = true }
@@ -199,18 +197,6 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
 
             composable(RouteEmailAuth) {
                 EmailAuthScreen(
-                    authViewModel = authViewModel,
-                    onBack = { navController.popBackStack() },
-                    onAuthenticated = {
-                        navController.navigate(Screen.Ptt.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                )
-            }
-
-            composable(RoutePhoneAuth) {
-                PhoneAuthScreen(
                     authViewModel = authViewModel,
                     onBack = { navController.popBackStack() },
                     onAuthenticated = {

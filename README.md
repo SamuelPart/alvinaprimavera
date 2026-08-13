@@ -69,30 +69,14 @@ Toda la app funciona sobre Supabase cuando hay credenciales configuradas. El có
 
 ## 🔐 Inicio de sesión (Supabase Auth)
 
-La app abre con un **splash animado** (2 s) y luego pide iniciar sesión con **Google**, **teléfono** (SMS) o **correo electrónico** (código de 6 dígitos). Activa cada método en tu dashboard de Supabase en **Authentication → Sign In / Providers**:
+La app abre con un **splash animado** (2 s) y luego pide iniciar sesión con **correo electrónico**: escribes tu correo, te llega un **código de 6 dígitos** y entras — sin contraseña, sin tarjetas y sin consolas externas. Es 100% gratis porque usa el servicio de correo que Supabase ya incluye.
 
-### Correo electrónico (el más fácil)
-1. **Email provider: ON** (viene activado por defecto).
-2. En **Authentication → Sign In / Providers → Email** desactiva **"Confirm email"** para entrar directo con el código.
-3. Listo: la app pide el correo → llega un **código de 6 dígitos** → se ingresa y entra.
+Configuración (ya viene casi todo activado por defecto):
+1. **Authentication → Sign In / Providers → Email: ON** ✓
+2. Desactiva **"Confirm email"** para entrar directo con el código.
+3. Listo. (Plan gratuito: ~3 correos/hora con el SMTP por defecto; para producción se conecta un SMTP propio.)
 
-### Teléfono (SMS)
-1. Activa **Phone provider**.
-2. Configura un **proveedor SMS** (Twilio, MessageBird o Vonage — es de pago).
-3. Sin proveedor SMS este botón mostrará un error controlado en la app.
-
-### Google
-1. En **Google Cloud Console → APIs y servicios → Credenciales**:
-   - Configura la **pantalla de consentimiento OAuth** (Externo).
-   - Crea un **ID de cliente OAuth 2.0 tipo "Aplicación web"** → copia su Client ID y Secret.
-   - Crea también un **ID de cliente tipo "Android"** con el paquete `com.flippy.walkietalkie` y tu **SHA-1** (`gradlew signingReport`).
-2. En **Supabase → Authentication → Providers → Google**: activa y pega el Client ID/Secret **web**.
-3. En tu `local.properties` agrega:
-   ```properties
-   google.web_client_id=TU-WEB-CLIENT-ID.apps.googleusercontent.com
-   ```
-
-> 🔒 La sesión queda guardada en el dispositivo: al reabrir, el splash pasa directo a la app. El botón rojo de salir está en la pantalla principal.
+> 🔒 La sesión queda guardada en el dispositivo: al reabrir, el splash pasa directo a la app. El botón de cerrar sesión (rojo) está en la pantalla principal.
 
 ---
 
