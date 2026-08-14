@@ -1,0 +1,105 @@
+package com.flippy.walkietalkie.ui.viewmodel
+
+import android.app.Application
+import android.util.Log
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.flippy.walkietalkie.data.supabase.SupabaseRepository
+import io.github.jan.supabase.gotrue.SessionStatus
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+data class AuthUiState(
+    val loading: Boolean = false,
+    val error: String? = null,
+    val emailCodeSent: Boolean = false
+)
+
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val _uiState = MutableStateFlow(AuthUiState())
+    val uiState = _uiState.asStateFlow()
+
+    /** Estado global de la sesión (LoadingFromStorage / NotAuthenticated / Authenticated). */
+    val sessionStatus: StateFlow<SessionStatus> = SupabaseRepository.sessionStatus
+
+    fun setError(message: String) {
+        _uiState.update { it.copy(error = message, loading = false) }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    // ------------- Correo electrónico (OTP de 6 dígitos) -------------
+
+    fun sendEmailCode(email: String) {
+        val clean = email.trim()
+        if (clean.isEmpty() || !clean.contains("@")) {
+            setError("Escribe un correo válido")
+            return
+        }
+        _uiState.update { it.copy(loading = true, error = null) }
+        viewModelScope.launch {
+            try {
+                SupabaseRepository.sendEmailCode(clean)
+                _uiState.update { it.copy(loading = false, emailCodeSent = true) }
+            } catch (e: Exception) {
+                Log.e("Flippy", "Error enviando código de correo", e)
+                setError(friendlyAuthError(e.message))
+            }
+        }
+    }
+
+    fun verifyEmailCode(email: String, code: String) {
+        val cleanCode = code.trim()
+        if (cleanCode.length < 6) {
+            setError("El código tiene 6 dígitos")
+            return
+        }
+        _uiState.update { it.copy(loading = true, error = null) }
+        viewModelScope.launch {
+            try {
+                SupabaseRepository.verifyEmailCode(email.trim(), cleanCode)
+                _uiState.update { it.copy(loading = false) }
+            } catch (e: Exception) {
+                Log.e("Flippy", "Error verificando código de correo", e)
+                setError(friendlyAuthError(e.message))
+            }
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            try {
+                SupabaseRepository.signOut()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun resetFlows() {
+        _uiState.value = AuthUiState()
+    }
+
+    private fun friendlyAuthError(raw: String?): String = when {
+        raw == null -> "Error desconocido"
+        raw.contains("rate limit", true) ->
+            "Demasiados intentos: espera unos minutos y reenvía el código"
+        raw.contains("expired", true) ->
+            "El código venció: pulsa «Reenviar código» y usa el nuevo"
+        raw.contains("Invalid login", true) || raw.contains("invalid", true) && raw.contains("token", true) ->
+            "Código incorrecto: usa el último código que te llegó al correo"
+        raw.contains("provider is not enabled", true) || raw.contains("Unsupported provider", true) ->
+            "Este método no está activado en Supabase (Authentication → Providers)"
+        raw.contains("Unable to validate email", true) -> "Correo no válido"
+        raw.contains("network", true) || raw.contains("Unable to resolve host", true) ->
+            "Sin conexión a internet"
+        raw.contains("not configured", true) ->
+            "Supabase no está configurado en local.properties"
+        else -> "Error: ${raw.take(120)}"
+    }
+}

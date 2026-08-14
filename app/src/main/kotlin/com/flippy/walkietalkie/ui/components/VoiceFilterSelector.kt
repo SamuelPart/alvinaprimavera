@@ -1,7 +1,6 @@
 package com.flippy.walkietalkie.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -15,9 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,22 +35,20 @@ fun VoiceFilterSelector(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "FILTROS DSP DE VOZ:",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = TextGray
+                text = "Filtro de voz",
+                style = Typography.labelMedium
             )
             Text(
-                text = selectedFilter.displayName.uppercase(),
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 11.sp,
-                color = NeonEmerald
+                text = selectedFilter.displayName,
+                style = Typography.labelMedium,
+                color = Accent,
+                fontWeight = FontWeight.SemiBold
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
+        // Chips tipo píldora, estilo moderno
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -63,45 +58,29 @@ fun VoiceFilterSelector(
             VoiceFilter.values().forEach { filter ->
                 val isSelected = filter == selectedFilter
 
-                Column(
+                Row(
                     modifier = Modifier
-                        .width(86.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) NeonEmerald.copy(alpha = 0.15f) else CardBackground)
-                        .border(
-                            width = 1.dp,
-                            color = if (isSelected) NeonEmerald else BorderDark,
-                            shape = RoundedCornerShape(10.dp)
-                        )
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(if (isSelected) AccentContainer else Surface)
                         .clickable {
                             SoundEffects.playDialTick()
                             onSelectFilter(filter)
                         }
-                        .padding(vertical = 8.dp, horizontal = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) NeonEmerald else Color(0xFF1E293B)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = getFilterIcon(filter.iconName),
-                            contentDescription = filter.displayName,
-                            tint = if (isSelected) BlackBackground else TextWhite,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
+                    Icon(
+                        imageVector = getFilterIcon(filter.iconName),
+                        contentDescription = filter.displayName,
+                        tint = if (isSelected) Accent else TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Text(
                         text = filter.displayName,
-                        fontSize = 10.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) NeonEmerald else TextGray,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isSelected) Accent else TextPrimary,
                         maxLines = 1
                     )
                 }

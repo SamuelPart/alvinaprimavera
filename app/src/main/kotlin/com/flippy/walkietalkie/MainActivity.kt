@@ -8,14 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -26,13 +24,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.flippy.walkietalkie.ui.screens.*
 import com.flippy.walkietalkie.ui.theme.*
+import com.flippy.walkietalkie.ui.viewmodel.AuthViewModel
 import com.flippy.walkietalkie.ui.viewmodel.FlippyViewModel
 
+// Rutas de autenticación (sin barra inferior)
+private const val RouteSplash = "splash"
+private const val RouteWelcome = "welcome"
+private const val RouteEmailAuth = "email_auth"
+
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Ptt : Screen("ptt", "PTT", Icons.Default.Radio)
+    object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
     object Channels : Screen("channels", "Canales", Icons.Default.CellTower)
     object Contacts : Screen("contacts", "Amigos", Icons.Default.People)
-    object History : Screen("history", "Audios", Icons.Default.FormatListBulleted)
+    object History : Screen("history", "Audios", Icons.Default.GraphicEq)
     object QrProfile : Screen("qr_profile", "Mi QR", Icons.Default.QrCode)
     object QrScanner : Screen("qr_scanner", "Escanear", Icons.Default.QrCodeScanner)
 }
@@ -40,6 +44,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 class MainActivity : ComponentActivity() {
 
     private val viewModel: FlippyViewModel by viewModels()
+    private val authViewModel: AuthViewModel by viewModels()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -54,9 +59,9 @@ class MainActivity : ComponentActivity() {
             FlippyTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = BlackBackground
+                    color = Background
                 ) {
-                    FlippyAppNavigation(viewModel)
+                    FlippyAppNavigation(viewModel, authViewModel)
                 }
             }
         }
@@ -70,9 +75,9 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingDeepLink(intent: android.content.Intent?) {
         val data = intent?.data ?: return
         // Handle flippy://connect?id=FLIP-XXXX
-        val contactId = data.getQueryParameter("id") 
+        val contactId = data.getQueryParameter("id")
             ?: data.lastPathSegment // For https://flippy.app/connect/FLIP-XXXX
-        
+
         if (!contactId.isNullOrEmpty() && contactId.startsWith("FLIP-", ignoreCase = true)) {
             viewModel.addContactById(contactId.uppercase())
         }
@@ -98,9 +103,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun FlippyAppNavigation(viewModel: FlippyViewModel) {
+fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel) {
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sessionStatus by authViewModel.sessionStatus.collectAsStateWithLifecycle()
     val micLevel by viewModel.micLevel.collectAsStateWithLifecycle()
     val waveformSamples by viewModel.waveformSamples.collectAsStateWithLifecycle()
     val currentPlayingId by viewModel.currentPlayingId.collectAsStateWithLifecycle()
@@ -118,12 +124,13 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel) {
     val showBottomBar = currentRoute in bottomNavItems.map { it.route }
 
     Scaffold(
+        containerColor = Background,
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar(
-                    containerColor = PanelBackground,
-                    contentColor = TextWhite,
-                    tonalElevation = 8.dp
+                    containerColor = Surface,
+                    contentColor = TextPrimary,
+                    tonalElevation = 0.dp
                 ) {
                     bottomNavItems.forEach { screen ->
                         val selected = currentRoute == screen.route
@@ -141,11 +148,11 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel) {
                                 }
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = BlackBackground,
-                                selectedTextColor = NeonEmerald,
-                                indicatorColor = NeonEmerald,
-                                unselectedIconColor = TextGray,
-                                unselectedTextColor = TextGray
+                                selectedIconColor = Accent,
+                                selectedTextColor = Accent,
+                                indicatorColor = AccentContainer,
+                                unselectedIconColor = TextSecondary,
+                                unselectedTextColor = TextSecondary
                             )
                         )
                     }
@@ -155,9 +162,51 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Ptt.route,
+            startDestination = RouteSplash,
             modifier = Modifier.padding(innerPadding)
         ) {
+            // ── Splash 2s: decide si va a login o directo a la app ──
+            composable(RouteSplash) {
+                SplashScreen(
+                    sessionStatus = sessionStatus,
+                    onFinished = { isAuthenticated ->
+                        if (isAuthenticated) {
+                            navController.navigate(Screen.Ptt.route) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate(RouteWelcome) {
+                                popUpTo(RouteSplash) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+
+            composable(RouteWelcome) {
+                WelcomeScreen(
+                    authViewModel = authViewModel,
+                    onOpenEmail = { navController.navigate(RouteEmailAuth) },
+                    onAuthenticated = {
+                        navController.navigate(Screen.Ptt.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(RouteEmailAuth) {
+                EmailAuthScreen(
+                    authViewModel = authViewModel,
+                    onBack = { navController.popBackStack() },
+                    onAuthenticated = {
+                        navController.navigate(Screen.Ptt.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable(Screen.Ptt.route) {
                 MainConsoleScreen(
                     uiState = uiState,
@@ -168,7 +217,13 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel) {
                     onSelectFilter = { viewModel.selectFilter(it) },
                     onOpenQr = { navController.navigate(Screen.QrProfile.route) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
-                    onUpdateServerUrl = { viewModel.updateServerUrl(it) }
+                    onUpdateServerUrl = { viewModel.updateServerUrl(it) },
+                    onLogout = {
+                        authViewModel.signOut()
+                        navController.navigate(RouteWelcome) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                 )
             }
 

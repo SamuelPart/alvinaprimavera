@@ -1,0 +1,23 @@
+# ============================================================
+#  Ejemplo de configuración local — FLIPPY
+#
+#  1. Copia este archivo como "local.properties" (misma carpeta raíz)
+#  2. Rellena tus valores reales
+#  ("local.properties" está en .gitignore: nunca se sube a GitHub)
+# ============================================================
+
+# Ruta al Android SDK (Android Studio lo suele generar automáticamente)
+# sdk.dir=C:\\Users\\TU_USUARIO\\AppData\\Local\\Android\\Sdk
+# sdk.dir=/Users/TU_USUARIO/Library/Android/sdk
+# sdk.dir=/home/TU_USUARIO/Android/Sdk
+
+# ============================================================
+#  Supabase → https://supabase.com/dashboard → tu proyecto
+#  → Project Settings → API
+# ============================================================
+
+# Project URL (ej: https://abcdefgh12345678.supabase.co)
+supabase.url=
+
+# Clave pública "anon" / "public API Key"
+supabase.anon_key=
