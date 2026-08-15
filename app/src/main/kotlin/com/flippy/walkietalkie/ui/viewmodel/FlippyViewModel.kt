@@ -56,6 +56,8 @@ data class FlippyUiState(
     ),
     val messages: List<VoiceMessage> = emptyList(),
     val autoPlayIncoming: Boolean = true,
+    val dndSyncEnabled: Boolean = false,
+    val quietHoursEnabled: Boolean = false,
     val serverUrl: String = "ws://10.0.2.2:3000/ws"
 )
 
@@ -79,6 +81,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     private val _uiState = MutableStateFlow(
         FlippyUiState(
             userProfile = loadOrCreateLocalProfile(),
+            autoPlayIncoming = prefs.getBoolean("autoplay_incoming", true),
+            dndSyncEnabled = prefs.getBoolean("dnd_sync", false),
+            quietHoursEnabled = prefs.getBoolean("quiet_hours", false),
             serverUrl = prefs.getString("server_url", "ws://10.0.2.2:3000/ws") ?: "ws://10.0.2.2:3000/ws"
         )
     )
@@ -553,6 +558,31 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 webSocketClient.connect(cleanUrl)
             }
         }
+    }
+
+    // ============================================================
+    //  Modos de reproducción (persisten en SharedPreferences)
+    // ============================================================
+
+    /** Activa/desactiva la reproducción automática de mensajes entrantes. */
+    fun setAutoPlayIncoming(enabled: Boolean) {
+        _uiState.update { it.copy(autoPlayIncoming = enabled) }
+        prefs.edit().putBoolean("autoplay_incoming", enabled).apply()
+    }
+
+    /** Botón rápido del encabezado: alterna reproducción ↔ silencio. */
+    fun toggleAutoPlayIncoming() = setAutoPlayIncoming(!_uiState.value.autoPlayIncoming)
+
+    /** Sincronizar con No molestar del sistema. */
+    fun setDndSync(enabled: Boolean) {
+        _uiState.update { it.copy(dndSyncEnabled = enabled) }
+        prefs.edit().putBoolean("dnd_sync", enabled).apply()
+    }
+
+    /** Configurar horario de silencio automático. */
+    fun setQuietHours(enabled: Boolean) {
+        _uiState.update { it.copy(quietHoursEnabled = enabled) }
+        prefs.edit().putBoolean("quiet_hours", enabled).apply()
     }
 
     // ============================================================

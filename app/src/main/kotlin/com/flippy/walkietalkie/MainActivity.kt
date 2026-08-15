@@ -32,6 +32,7 @@ private const val RouteSplash = "splash"
 private const val RouteWelcome = "welcome"
 private const val RouteEmailAuth = "email_auth"
 private const val RouteOnboarding = "onboarding"
+private const val RoutePlaybackMode = "playback_mode"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
@@ -228,7 +229,8 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onSelectFilter = { viewModel.selectFilter(it) },
                     onOpenQr = { navController.navigate(Screen.QrProfile.route) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
-                    onUpdateServerUrl = { viewModel.updateServerUrl(it) },
+                    onToggleAutoPlay = { viewModel.toggleAutoPlayIncoming() },
+                    onOpenPlaybackModes = { navController.navigate(RoutePlaybackMode) },
                     onLogout = {
                         authViewModel.signOut()
                         navController.navigate(RouteWelcome) {
@@ -291,6 +293,17 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                         viewModel.addContactById(it)
                         navController.popBackStack()
                     },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ── Seleccionar modo de reproducción (automática / silencio) ──
+            composable(RoutePlaybackMode) {
+                PlaybackModeScreen(
+                    uiState = uiState,
+                    onSelectAutoPlay = { viewModel.setAutoPlayIncoming(it) },
+                    onSetDndSync = { viewModel.setDndSync(it) },
+                    onSetQuietHours = { viewModel.setQuietHours(it) },
                     onBack = { navController.popBackStack() }
                 )
             }

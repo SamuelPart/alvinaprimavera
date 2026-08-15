@@ -1,6 +1,8 @@
 package com.flippy.walkietalkie.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -13,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,13 +35,11 @@ fun MainConsoleScreen(
     onSelectFilter: (com.flippy.walkietalkie.data.model.VoiceFilter) -> Unit,
     onOpenQr: () -> Unit,
     onOpenScanner: () -> Unit,
-    onUpdateServerUrl: (String) -> Unit = {},
+    onToggleAutoPlay: () -> Unit = {},
+    onOpenPlaybackModes: () -> Unit = {},
     onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var showServerDialog by remember { mutableStateOf(false) }
-    var tempServerUrl by remember(uiState.serverUrl) { mutableStateOf(uiState.serverUrl) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -47,7 +49,7 @@ fun MainConsoleScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // ── Cabecera: operador + acciones ──────────────────────
+        // ── Cabecera: avatar conectado + modo de reproducción ──
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -55,57 +57,104 @@ fun MainConsoleScreen(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceElevated),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = uiState.userProfile.avatar, fontSize = 20.sp)
+                // Imagen de usuario circular + punto verde de conectado
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Accent, AccentBlue))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = uiState.userProfile.username.firstOrNull()?.uppercaseChar()?.toString() ?: "F",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(13.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Background, CircleShape)
+                            .background(Color(0xFF4ADE80))
+                    )
                 }
-                Column {
-                    Text(
-                        text = uiState.userProfile.username,
-                        style = Typography.titleMedium
-                    )
-                    Text(
-                        text = uiState.userProfile.id,
-                        style = Typography.bodySmall,
-                        color = Accent
-                    )
+
+                // Botón de modo: tocar alterna reproducción↔silencio,
+                // el icono ⇅ abre «Seleccionar modo»
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(SurfaceElevated)
+                        .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable { onToggleAutoPlay() }
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.autoPlayIncoming)
+                                Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                            contentDescription = null,
+                            tint = if (uiState.autoPlayIncoming) Accent else TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (uiState.autoPlayIncoming)
+                                "Reproducción automática" else "Modo silencio",
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
+                        )
+                    }
+                    IconButton(
+                        onClick = onOpenPlaybackModes,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.UnfoldMore,
+                            contentDescription = "Seleccionar modo",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = onLogout) {
-                    Icon(
-                        imageVector = Icons.Default.Logout,
-                        contentDescription = "Cerrar sesión",
-                        tint = RecordRed
-                    )
-                }
-                IconButton(onClick = { showServerDialog = true }) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Servidor",
-                        tint = TextSecondary
-                    )
-                }
-                IconButton(onClick = onOpenScanner) {
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                IconButton(onClick = onOpenScanner, modifier = Modifier.size(38.dp)) {
                     Icon(
                         imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = "Escanear QR",
-                        tint = TextSecondary
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                IconButton(onClick = onOpenQr) {
+                IconButton(onClick = onOpenQr, modifier = Modifier.size(38.dp)) {
                     Icon(
                         imageVector = Icons.Default.QrCode,
                         contentDescription = "Mi QR",
-                        tint = Accent
+                        tint = Accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(onClick = onLogout, modifier = Modifier.size(38.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Logout,
+                        contentDescription = "Cerrar sesión",
+                        tint = RecordRed,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -218,50 +267,6 @@ fun MainConsoleScreen(
     }
 
     // ── Diálogo: servidor de respaldo ──────────────────────────
-    if (showServerDialog) {
-        AlertDialog(
-            onDismissRequest = { showServerDialog = false },
-            title = { Text("Servidor de respaldo", style = Typography.titleLarge) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Solo se usa si no configuraste Supabase. La conexión principal ya va por la nube.",
-                        style = Typography.bodyMedium
-                    )
-                    OutlinedTextField(
-                        value = tempServerUrl,
-                        onValueChange = { tempServerUrl = it },
-                        placeholder = { Text("ws://… o wss://…") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onUpdateServerUrl(tempServerUrl)
-                        showServerDialog = false
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Accent,
-                        contentColor = Background
-                    )
-                ) {
-                    Text("Guardar", fontWeight = FontWeight.SemiBold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showServerDialog = false }) {
-                    Text("Cancelar", color = TextSecondary)
-                }
-            },
-            containerColor = Surface,
-            shape = RoundedCornerShape(24.dp)
-        )
-    }
 }
 
 @Composable
