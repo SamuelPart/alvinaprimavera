@@ -6,41 +6,66 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+// Tipografía limpia estilo apps modernas (sans-serif en todo, pesos claros)
 val Typography = Typography(
-    headlineLarge = TextStyle(
-        fontFamily = FontFamily.Monospace,
+    displaySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        color = TextWhite
+        fontSize = 28.sp,
+        color = TextPrimary
     ),
     headlineMedium = TextStyle(
-        fontFamily = FontFamily.Monospace,
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        color = TextWhite
+        fontSize = 20.sp,
+        color = TextPrimary
+    ),
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 17.sp,
+        color = TextPrimary
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
-        color = TextWhite
+        color = TextPrimary
+    ),
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 15.sp,
+        color = TextPrimary
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
         fontSize = 13.sp,
-        color = TextWhite
+        color = TextSecondary
     ),
     bodySmall = TextStyle(
-        fontFamily = FontFamily.Monospace,
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
         fontSize = 11.sp,
-        color = TextGray
+        color = TextSecondary
+    ),
+    labelLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        color = TextPrimary
+    ),
+    labelMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        color = TextSecondary
     ),
     labelSmall = TextStyle(
-        fontFamily = FontFamily.Monospace,
-        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
         fontSize = 10.sp,
-        color = NeonEmerald
+        color = TextTertiary
     )
 )

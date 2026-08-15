@@ -14,7 +14,6 @@ val localProperties = Properties().apply {
 }
 val supabaseUrl: String = localProperties.getProperty("supabase.url", "").replace("\"", "\\\"")
 val supabaseAnonKey: String = localProperties.getProperty("supabase.anon_key", "").replace("\"", "\\\"")
-
 android {
     namespace = "com.flippy.walkietalkie"
     compileSdk = 34
@@ -106,6 +105,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
     implementation("io.ktor:ktor-client-okhttp:2.3.12")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 

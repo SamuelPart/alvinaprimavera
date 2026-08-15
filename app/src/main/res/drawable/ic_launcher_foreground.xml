@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Glifo del ícono: punto + ondas de transmisión (PTT) en blanco -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Punto central -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M47,54a7,7 0,1 0,14 0a7,7 0,1 0,-14 0" />
+
+    <!-- Onda interior derecha -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M62.03,42.53 A14,14 0 0 1 62.03,65.47" />
+
+    <!-- Onda interior izquierda -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M45.97,65.47 A14,14 0 0 1 45.97,42.53" />
+
+    <!-- Onda exterior derecha -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M67.77,34.34 A24,24 0 0 1 67.77,73.66" />
+
+    <!-- Onda exterior izquierda -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M40.23,73.66 A24,24 0 0 1 40.23,34.34" />
+</vector>
