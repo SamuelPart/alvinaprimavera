@@ -1,8 +1,8 @@
 package com.flippy.walkietalkie
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,6 +31,7 @@ import com.flippy.walkietalkie.ui.viewmodel.FlippyViewModel
 private const val RouteSplash = "splash"
 private const val RouteWelcome = "welcome"
 private const val RouteEmailAuth = "email_auth"
+private const val RouteOnboarding = "onboarding"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
@@ -84,15 +85,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestRequiredPermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-
-        val needed = permissions.filter {
+        // Micrófono y notificaciones ahora se piden en el onboarding (1 de 3 y 2 de 3)
+        // con su explicación. Aquí solo queda la cámara, que el escáner QR usa directo.
+        val needed = listOf(Manifest.permission.CAMERA).filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
 
@@ -122,6 +117,16 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
     )
 
     val showBottomBar = currentRoute in bottomNavItems.map { it.route }
+
+    // Tras autenticarse: onboarding (solo la primera vez) o directo a la app
+    fun navigateAfterAuth() {
+        val prefs = navController.context.getSharedPreferences("flippy_prefs", Context.MODE_PRIVATE)
+        val destination =
+            if (prefs.getBoolean("onboarding_done", false)) Screen.Ptt.route else RouteOnboarding
+        navController.navigate(destination) {
+            popUpTo(0) { inclusive = true }
+        }
+    }
 
     Scaffold(
         containerColor = Background,
@@ -171,9 +176,7 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     sessionStatus = sessionStatus,
                     onFinished = { isAuthenticated ->
                         if (isAuthenticated) {
-                            navController.navigate(Screen.Ptt.route) {
-                                popUpTo(0) { inclusive = true }
-                            }
+                            navigateAfterAuth()
                         } else {
                             navController.navigate(RouteWelcome) {
                                 popUpTo(RouteSplash) { inclusive = true }
@@ -187,11 +190,7 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                 WelcomeScreen(
                     authViewModel = authViewModel,
                     onOpenEmail = { navController.navigate(RouteEmailAuth) },
-                    onAuthenticated = {
-                        navController.navigate(Screen.Ptt.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
+                    onAuthenticated = { navigateAfterAuth() }
                 )
             }
 
@@ -199,7 +198,19 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                 EmailAuthScreen(
                     authViewModel = authViewModel,
                     onBack = { navController.popBackStack() },
-                    onAuthenticated = {
+                    onAuthenticated = { navigateAfterAuth() }
+                )
+            }
+
+            // ── Onboarding de 3 pasos (permisos con explicación, una sola vez) ──
+            composable(RouteOnboarding) {
+                OnboardingScreen(
+                    onFinish = {
+                        navController.context
+                            .getSharedPreferences("flippy_prefs", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("onboarding_done", true)
+                            .apply()
                         navController.navigate(Screen.Ptt.route) {
                             popUpTo(0) { inclusive = true }
                         }
