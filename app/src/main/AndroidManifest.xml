@@ -78,6 +78,17 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- FileProvider: captura de foto de perfil con la cámara -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.flippy.walkietalkie.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

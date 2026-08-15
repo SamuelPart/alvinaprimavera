@@ -100,6 +100,9 @@ dependencies {
     // ZXing for QR Code generation and barcode analysis
     implementation("com.google.zxing:core:3.5.3")
 
+    // ExifInterface: corregir la orientación de fotos de perfil tomadas con la cámara
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+
     // ===== Supabase (base de datos, realtime y storage en la nube) =====
     implementation(platform("io.github.jan-tennert.supabase:bom:2.4.3"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")

@@ -58,6 +58,8 @@ data class FlippyUiState(
     val autoPlayIncoming: Boolean = true,
     val dndSyncEnabled: Boolean = false,
     val quietHoursEnabled: Boolean = false,
+    val profilePhotoPath: String? = null,
+    val profileCreated: Boolean = false,
     val serverUrl: String = "ws://10.0.2.2:3000/ws"
 )
 
@@ -84,6 +86,8 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             autoPlayIncoming = prefs.getBoolean("autoplay_incoming", true),
             dndSyncEnabled = prefs.getBoolean("dnd_sync", false),
             quietHoursEnabled = prefs.getBoolean("quiet_hours", false),
+            profilePhotoPath = prefs.getString("profile_photo", null),
+            profileCreated = prefs.getBoolean("profile_done", false),
             serverUrl = prefs.getString("server_url", "ws://10.0.2.2:3000/ws") ?: "ws://10.0.2.2:3000/ws"
         )
     )
@@ -583,6 +587,27 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     fun setQuietHours(enabled: Boolean) {
         _uiState.update { it.copy(quietHoursEnabled = enabled) }
         prefs.edit().putBoolean("quiet_hours", enabled).apply()
+    }
+
+    /** Guarda el perfil creado en la configuración (nombre visible + foto local). */
+    fun saveUserProfile(firstName: String, lastName: String, photoPath: String?) {
+        val fullName = listOf(firstName.trim(), lastName.trim())
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
+            .ifEmpty { _uiState.value.userProfile.username }
+        val current = _uiState.value.userProfile
+        _uiState.update {
+            it.copy(
+                userProfile = current.copy(username = fullName),
+                profilePhotoPath = photoPath,
+                profileCreated = true
+            )
+        }
+        prefs.edit()
+            .putString("flippy_username", fullName)
+            .putString("profile_photo", photoPath)
+            .putBoolean("profile_done", true)
+            .apply()
     }
 
     // ============================================================

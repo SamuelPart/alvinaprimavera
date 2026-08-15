@@ -33,6 +33,7 @@ private const val RouteWelcome = "welcome"
 private const val RouteEmailAuth = "email_auth"
 private const val RouteOnboarding = "onboarding"
 private const val RoutePlaybackMode = "playback_mode"
+private const val RouteProfileSetup = "profile_setup"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
@@ -231,6 +232,14 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
                     onToggleAutoPlay = { viewModel.toggleAutoPlayIncoming() },
                     onOpenPlaybackModes = { navController.navigate(RoutePlaybackMode) },
+                    onAvatarClick = {
+                        // Si aún no configuró su perfil: flujo 1 de 2 / 2 de 2
+                        if (!uiState.profileCreated) {
+                            navController.navigate(RouteProfileSetup)
+                        } else {
+                            navController.navigate(Screen.QrProfile.route)
+                        }
+                    },
                     onLogout = {
                         authViewModel.signOut()
                         navController.navigate(RouteWelcome) {
@@ -305,6 +314,19 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onSetDndSync = { viewModel.setDndSync(it) },
                     onSetQuietHours = { viewModel.setQuietHours(it) },
                     onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ── Configuración de perfil: nombre + foto (1 de 2 / 2 de 2) ──
+            composable(RouteProfileSetup) {
+                ProfileSetupScreen(
+                    onFinished = { first, last, photoPath ->
+                        viewModel.saveUserProfile(first, last, photoPath)
+                        navController.navigate(Screen.Ptt.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onCancel = { navController.popBackStack() }
                 )
             }
         }

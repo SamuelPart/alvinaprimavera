@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Captura temporal con la cámara (foto de perfil) -->
+    <cache-path name="captures" path="." />
+    <!-- Foto de perfil recortada y guardada -->
+    <files-path name="profile" path="." />
+</paths>

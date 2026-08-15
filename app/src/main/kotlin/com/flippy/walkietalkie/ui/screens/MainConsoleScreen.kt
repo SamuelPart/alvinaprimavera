@@ -1,5 +1,7 @@
 package com.flippy.walkietalkie.ui.screens
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +41,7 @@ fun MainConsoleScreen(
     onOpenScanner: () -> Unit,
     onToggleAutoPlay: () -> Unit = {},
     onOpenPlaybackModes: () -> Unit = {},
+    onAvatarClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -60,8 +65,23 @@ fun MainConsoleScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                // Imagen de usuario circular + punto verde de conectado
-                Box(contentAlignment = Alignment.BottomEnd) {
+                // Imagen de usuario circular (foto o iniciales) + punto verde;
+                // tocar abre la configuración de perfil (o Mi QR si ya está creado)
+                val profileInitials = remember(uiState.userProfile.username) {
+                    uiState.userProfile.username
+                        .split(" ")
+                        .filter { it.isNotBlank() }
+                        .take(2)
+                        .joinToString("") { it.first().uppercaseChar().toString() }
+                        .ifEmpty { "F" }
+                }
+                val profilePhoto = remember(uiState.profilePhotoPath) {
+                    uiState.profilePhotoPath?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
+                }
+                Box(
+                    contentAlignment = Alignment.BottomEnd,
+                    modifier = Modifier.clickable { onAvatarClick() }
+                ) {
                     Box(
                         modifier = Modifier
                             .size(44.dp)
@@ -69,12 +89,21 @@ fun MainConsoleScreen(
                             .background(Brush.linearGradient(listOf(Accent, AccentBlue))),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = uiState.userProfile.username.firstOrNull()?.uppercaseChar()?.toString() ?: "F",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
+                        if (profilePhoto != null) {
+                            Image(
+                                bitmap = profilePhoto,
+                                contentDescription = "Mi perfil",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = profileInitials,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = if (profileInitials.length > 1) 16.sp else 18.sp
+                            )
+                        }
                     }
                     Box(
                         modifier = Modifier
