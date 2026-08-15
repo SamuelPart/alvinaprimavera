@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.flippy.walkietalkie.ui.screens
 
 import android.Manifest
