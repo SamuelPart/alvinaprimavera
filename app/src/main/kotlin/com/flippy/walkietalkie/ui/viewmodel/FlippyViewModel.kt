@@ -20,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 import kotlin.random.Random
 
 data class FlippyUiState(
@@ -608,6 +609,20 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             .putString("profile_photo", photoPath)
             .putBoolean("profile_done", true)
             .apply()
+
+        // Sube la foto a Supabase Storage para que los amigos la vean
+        // (ruta por convención: flippy-audio/avatars/{FLIP-ID}.jpg)
+        if (photoPath != null && useSupabase) {
+            viewModelScope.launch {
+                try {
+                    val bytes = File(photoPath).readBytes()
+                    SupabaseRepository.uploadAvatar(current.id, bytes)
+                    Log.i(TAG, "Foto de perfil subida a Supabase ✅ (avatars/${current.id}.jpg)")
+                } catch (e: Exception) {
+                    Log.e(TAG, "No se pudo subir la foto de perfil", e)
+                }
+            }
+        }
     }
 
     // ============================================================

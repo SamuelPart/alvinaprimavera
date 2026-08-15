@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.data.model.VoiceMessage
+import com.flippy.walkietalkie.data.supabase.SupabaseRepository
+import com.flippy.walkietalkie.ui.components.PeerAvatar
 import com.flippy.walkietalkie.ui.theme.*
 
 @Composable
@@ -99,15 +101,13 @@ fun HistoryScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(CircleShape)
-                                        .background(SurfaceElevated),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(text = msg.senderAvatar, fontSize = 16.sp)
-                                }
+                                // Foto del remitente desde Supabase (o emoji si no tiene)
+                                PeerAvatar(
+                                    photoUrl = SupabaseRepository.avatarPublicUrl(msg.senderId),
+                                    fallbackEmoji = msg.senderAvatar,
+                                    sizeDp = 34,
+                                    backgroundColor = SurfaceElevated
+                                )
                                 Text(
                                     text = msg.senderName,
                                     style = Typography.titleMedium,

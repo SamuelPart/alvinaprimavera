@@ -318,6 +318,20 @@ object SupabaseRepository {
     fun publicAudioUrl(path: String): String =
         "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/$AUDIO_BUCKET/$path"
 
+    // ---------- Avatares (Storage: avatars/{FLIP-ID}.jpg) ----------
+
+    /** Sube la foto de perfil del usuario (se sobrescribe si ya existía). */
+    suspend fun uploadAvatar(flippyId: String, bytes: ByteArray) {
+        supabase.storage[AUDIO_BUCKET].upload("avatars/$flippyId.jpg", bytes, upsert = true)
+    }
+
+    /** URL pública de la foto de perfil de cualquier usuario (convención por ID).
+     *  Si aún no ha subido foto, la URL da 404 y la UI muestra el emoji/iniciales. */
+    fun avatarPublicUrl(flippyId: String): String? =
+        if (isConfigured())
+            "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/$AUDIO_BUCKET/avatars/$flippyId.jpg"
+        else null
+
     // ---------- Observadores Realtime (INSERT en tablas) ----------
 
     fun observeMessages(): Flow<VoiceMessageDto> =

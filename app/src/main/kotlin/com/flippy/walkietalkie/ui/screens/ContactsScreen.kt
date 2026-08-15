@@ -1,5 +1,7 @@
 package com.flippy.walkietalkie.ui.screens
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,12 +15,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.audio.SoundEffects
 import com.flippy.walkietalkie.data.model.User
 import com.flippy.walkietalkie.data.model.UserStatus
+import com.flippy.walkietalkie.data.supabase.SupabaseRepository
+import com.flippy.walkietalkie.ui.components.PeerAvatar
 import com.flippy.walkietalkie.ui.theme.*
 
 @Composable
@@ -30,6 +36,7 @@ fun ContactsScreen(
     onAddContactById: (String) -> Unit,
     onOpenScanner: () -> Unit,
     onOpenQrProfile: () -> Unit,
+    myPhotoPath: String? = null,
     modifier: Modifier = Modifier
 ) {
     var manualIdInput by remember { mutableStateOf("") }
@@ -64,14 +71,26 @@ fun ContactsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(AccentContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = userProfile.avatar, fontSize = 22.sp)
+                // Mi avatar: foto local si existe; si no, la de Supabase; si no, emoji
+                val myPhoto = remember(myPhotoPath) {
+                    myPhotoPath?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
+                }
+                if (myPhoto != null) {
+                    Image(
+                        bitmap = myPhoto,
+                        contentDescription = "Mi foto",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    PeerAvatar(
+                        photoUrl = SupabaseRepository.avatarPublicUrl(userProfile.id),
+                        fallbackEmoji = userProfile.avatar,
+                        sizeDp = 46,
+                        backgroundColor = AccentContainer
+                    )
                 }
 
                 Column {
@@ -185,15 +204,13 @@ fun ContactsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceElevated),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = contact.avatar, fontSize = 20.sp)
-                    }
+                    // Avatar del amigo: su foto de Supabase (o emoji si no tiene)
+                    PeerAvatar(
+                        photoUrl = SupabaseRepository.avatarPublicUrl(contact.id),
+                        fallbackEmoji = contact.avatar,
+                        sizeDp = 44,
+                        backgroundColor = SurfaceElevated
+                    )
 
                     Column(modifier = Modifier.weight(1f)) {
                         Row(

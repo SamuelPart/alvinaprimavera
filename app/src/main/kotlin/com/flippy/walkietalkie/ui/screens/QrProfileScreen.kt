@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.data.model.User
+import com.flippy.walkietalkie.data.supabase.SupabaseRepository
+import com.flippy.walkietalkie.ui.components.PeerAvatar
 import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.FlippyViewModel
 
@@ -78,15 +80,13 @@ fun QrProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(AccentContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = userProfile.avatar, fontSize = 30.sp)
-                }
+                // Mi foto de perfil (Supabase) o emoji de respaldo
+                PeerAvatar(
+                    photoUrl = SupabaseRepository.avatarPublicUrl(userProfile.id),
+                    fallbackEmoji = userProfile.avatar,
+                    sizeDp = 64,
+                    backgroundColor = AccentContainer
+                )
                 Text(text = userProfile.username, style = Typography.headlineMedium)
                 Box(
                     modifier = Modifier

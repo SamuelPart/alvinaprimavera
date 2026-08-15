@@ -103,6 +103,9 @@ dependencies {
     // ExifInterface: corregir la orientación de fotos de perfil tomadas con la cámara
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 
+    // Coil: carga fotos de perfil remotas desde Supabase Storage (URLs públicas)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // ===== Supabase (base de datos, realtime y storage en la nube) =====
     implementation(platform("io.github.jan-tennert.supabase:bom:2.4.3"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")

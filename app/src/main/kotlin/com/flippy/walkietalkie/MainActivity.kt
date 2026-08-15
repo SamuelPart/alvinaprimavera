@@ -275,7 +275,8 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     },
                     onAddContactById = { viewModel.addContactById(it) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
-                    onOpenQrProfile = { navController.navigate(Screen.QrProfile.route) }
+                    onOpenQrProfile = { navController.navigate(Screen.QrProfile.route) },
+                    myPhotoPath = uiState.profilePhotoPath
                 )
             }
 
