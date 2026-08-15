@@ -4,8 +4,12 @@ package com.flippy.walkietalkie.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -17,7 +21,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
@@ -43,8 +49,8 @@ import kotlinx.coroutines.launch
 // ============================================================
 //  Onboarding estilo iPhone: 3 pasos numerados ("1 de 3"...)
 //  Pantalla 1 → permiso de micrófono (ícono animado con pulsos)
-//  Pantalla 2 → permiso de notificaciones
-//  Pantalla 3 → todo listo, entrar a la app
+//  Pantalla 2 → permiso de contactos (encontrar amigos)
+//  Pantalla 3 → notificaciones + ignorar optimización de batería
 // ============================================================
 
 @Composable
@@ -106,10 +112,10 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     0 -> MicPermissionPage(
                         onContinue = { scope.launch { pagerState.animateScrollToPage(1) } }
                     )
-                    1 -> NotificationsPermissionPage(
+                    1 -> ContactsPermissionPage(
                         onContinue = { scope.launch { pagerState.animateScrollToPage(2) } }
                     )
-                    else -> ReadyPage(onStart = onFinish)
+                    else -> NotificationsBatteryPage(onFinish = onFinish)
                 }
             }
 
@@ -192,24 +198,21 @@ private fun MicPermissionPage(onContinue: () -> Unit) {
 }
 
 // ============================================================
-//  2 de 3 — Permiso de notificaciones
+//  2 de 3 — Permiso de contactos
 // ============================================================
 
 @Composable
-private fun NotificationsPermissionPage(onContinue: () -> Unit) {
+private fun ContactsPermissionPage(onContinue: () -> Unit) {
     val context = LocalContext.current
-    // En Android 12 o menor no hace falta pedirlo: se considera concedido
-    val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    var granted by remember {
-        mutableStateOf(!needsPermission || hasPermission(context, Manifest.permission.POST_NOTIFICATIONS))
-    }
+    var granted by remember { mutableStateOf(hasPermission(context, Manifest.permission.READ_CONTACTS)) }
+    var deniedOnce by remember { mutableStateOf(false) }
     var justGranted by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { ok ->
         granted = ok
-        if (ok) justGranted = true
+        if (ok) justGranted = true else deniedOnce = true
     }
 
     LaunchedEffect(justGranted) {
@@ -221,15 +224,16 @@ private fun NotificationsPermissionPage(onContinue: () -> Unit) {
     }
 
     OnboardingPageLayout(
-        hero = { AnimatedPermissionHero(icon = Icons.Default.Notifications, granted = granted) },
-        title = "Activa las notificaciones",
-        subtitle = "Entérate al instante cuando un amigo transmita, incluso con la pantalla apagada."
+        hero = { AnimatedPermissionHero(icon = Icons.Default.Contacts, granted = granted) },
+        title = "¡Veamos qué amigos están aquí!",
+        subtitle = "Permite el acceso a tus contactos y números: te ayudará a conectarte con tus amigos más fácilmente.",
+        warning = if (deniedOnce && !granted)
+            "Sin contactos tendrás que agregar amigos a mano con su FLIP-ID o QR."
+        else null
     ) {
         if (!granted) {
-            OnboardingPrimaryButton(text = "Permitir notificaciones") {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
+            OnboardingPrimaryButton(text = "Permitir contactos") {
+                permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
             }
             OnboardingGhostButton(text = "Ahora no", onClick = onContinue)
         } else {
@@ -239,18 +243,84 @@ private fun NotificationsPermissionPage(onContinue: () -> Unit) {
 }
 
 // ============================================================
-//  3 de 3 — Todo listo
+//  3 de 3 — Notificaciones + ignorar optimización de batería
 // ============================================================
 
 @Composable
-private fun ReadyPage(onStart: () -> Unit) {
-    OnboardingPageLayout(
-        hero = { AnimatedPermissionHero(icon = Icons.Default.Check, granted = true) },
-        title = "¡Todo listo!",
-        subtitle = "Mantén presionado el botón grande y habla: tu voz llega al instante a tu frecuencia."
-    ) {
-        OnboardingPrimaryButton(text = "Empezar", onClick = onStart)
+private fun NotificationsBatteryPage(onFinish: () -> Unit) {
+    val context = LocalContext.current
+    val needsNotif = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+
+    var notifGranted by remember {
+        mutableStateOf(!needsNotif || hasPermission(context, Manifest.permission.POST_NOTIFICATIONS))
     }
+    var notifSkipped by remember { mutableStateOf(false) }
+    var batteryGranted by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
+    var batterySkipped by remember { mutableStateOf(false) }
+
+    val notifLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { ok -> notifGranted = ok }
+
+    val batteryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        batteryGranted = isIgnoringBatteryOptimizations(context)
+    }
+
+    val notifStep = !notifGranted && !notifSkipped
+    val batteryStep = !notifStep && !batteryGranted && !batterySkipped
+    val allDone = !notifStep && !batteryStep
+
+    OnboardingPageLayout(
+        hero = {
+            AnimatedPermissionHero(
+                icon = if (batteryStep) Icons.Default.BatteryChargingFull
+                       else Icons.Default.Notifications,
+                granted = allDone && (notifGranted || batteryGranted)
+            )
+        },
+        title = "No te pierdas los mensajes de tus amigos",
+        subtitle = when {
+            batteryStep ->
+                "Y para seguir escuchando con la pantalla apagada, permite que Flippy ignore la optimización de batería."
+            allDone ->
+                "Listo: recibirás los mensajes de tus amigos al instante, incluso con la app cerrada."
+            else ->
+                "Permite el acceso a las notificaciones para recibir los mensajes de tus amigos."
+        }
+    ) {
+        when {
+            notifStep -> {
+                OnboardingPrimaryButton(text = "Permitir notificaciones") {
+                    if (needsNotif) {
+                        notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        notifGranted = true
+                    }
+                }
+                OnboardingGhostButton(text = "Ahora no") { notifSkipped = true }
+            }
+            batteryStep -> {
+                OnboardingPrimaryButton(text = "Mantener siempre activa") {
+                    val intent = Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                    batteryLauncher.launch(intent)
+                }
+                OnboardingGhostButton(text = "Ahora no") { batterySkipped = true }
+            }
+            else -> {
+                OnboardingPrimaryButton(text = "Empezar", onClick = onFinish)
+            }
+        }
+    }
+}
+
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
 }
 
 // ============================================================
