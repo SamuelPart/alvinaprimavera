@@ -1,5 +1,9 @@
 package com.flippy.walkietalkie.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -13,11 +17,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.ui.theme.*
@@ -25,9 +38,9 @@ import com.flippy.walkietalkie.ui.viewmodel.AuthViewModel
 import io.github.jan.supabase.gotrue.SessionStatus
 
 // ============================================================
-//  Pantalla de bienvenida: inicio de sesión solo con correo
-//  (correo + contraseña: no se envía ningún email ni código,
-//  100% gratis incluso sin SMTP personalizado)
+//  Pantalla de bienvenida · estilo iPhone
+//  Fondo negro con difuminados de color, logo moderno tipo
+//  ícono de app iOS y píldora blanca de alto contraste.
 // ============================================================
 
 @Composable
@@ -43,82 +56,169 @@ fun WelcomeScreen(
         if (sessionStatus is SessionStatus.Authenticated) onAuthenticated()
     }
 
-    Column(
+    // Entrada suave: fundido + zoom mínimo (estilo iOS)
+    val entrance = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        entrance.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
+        )
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .padding(horizontal = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(AccentContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = "📻", fontSize = 34.sp)
+        // ── Difuminados de fondo: halos suaves menta y azul ──
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Accent.copy(alpha = 0.30f), Color.Transparent),
+                    center = Offset(size.width * 0.18f, size.height * 0.10f),
+                    radius = size.width * 0.80f
+                )
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(AccentBlue.copy(alpha = 0.24f), Color.Transparent),
+                    center = Offset(size.width * 0.88f, size.height * 0.90f),
+                    radius = size.width * 0.85f
+                )
+            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Flippy",
-            fontSize = 42.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White
-        )
-        Text(
-            text = "Walkie-talkie en la nube",
-            fontSize = 14.sp,
-            color = TextSecondary
-        )
-
-        Spacer(modifier = Modifier.height(44.dp))
-
-        // ── Botón principal blanco: entrada por correo ──
-        Button(
-            onClick = onOpenEmail,
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = Color.Black
+                .fillMaxSize()
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+
+            FlippyAppLogo(
+                modifier = Modifier.graphicsLayer {
+                    alpha = entrance.value
+                    val s = 0.88f + 0.12f * entrance.value
+                    scaleX = s
+                    scaleY = s
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "Flippy",
+                fontSize = 46.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.graphicsLayer { alpha = entrance.value }
+            )
+
+            Spacer(modifier = Modifier.weight(1.25f))
+
+            // ── Botón estilo iPhone: píldora blanca, texto negro puro ──
+            Button(
+                onClick = onOpenEmail,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .graphicsLayer { alpha = entrance.value },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Email,
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.size(19.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Correo electrónico",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            uiState.error?.let { err ->
+                Text(
+                    text = err,
+                    color = RecordRed,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Spacer(modifier = Modifier.height(34.dp))
+        }
+    }
+}
+
+// ── Logo moderno de Flippy: ícono estilo app iOS (cuadrado
+//    redondeado con degradado menta→azul, brillo de cristal y
+//    glifo blanco de ondas de transmisión) ──
+@Composable
+private fun FlippyAppLogo(modifier: Modifier = Modifier, logoSize: Dp = 96.dp) {
+    Canvas(modifier = modifier.size(logoSize)) {
+        val w = size.width
+        val h = size.height
+        val corner = CornerRadius(w * 0.26f, w * 0.26f)
+
+        // Ícono de app: cuadrado redondeado con degradado diagonal
+        drawRoundRect(
+            brush = Brush.linearGradient(
+                colors = listOf(Accent, AccentBlue),
+                start = Offset(0f, 0f),
+                end = Offset(w, h)
             ),
-            shape = RoundedCornerShape(28.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Email,
-                contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Continuar con correo electrónico",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Text(
-            text = "Entras con tu correo y una contraseña.\nSin códigos ni correos: 100% gratis.",
-            fontSize = 12.sp,
-            color = TextTertiary,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            cornerRadius = corner
         )
 
-        uiState.error?.let { err ->
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = err,
-                color = RecordRed,
-                fontSize = 12.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        // Brillo sutil arriba (efecto cristal tipo iOS)
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.White.copy(alpha = 0.22f), Color.Transparent),
+                startY = 0f,
+                endY = h * 0.55f
+            ),
+            cornerRadius = corner
+        )
+
+        // Glifo: punto central + ondas de transmisión a ambos lados
+        val cx = w / 2f
+        val cy = h / 2f
+        val wavesStyle = Stroke(width = w * 0.055f, cap = StrokeCap.Round)
+
+        drawCircle(color = Color.White, radius = w * 0.075f, center = Offset(cx, cy))
+
+        listOf(w * 0.16f, w * 0.26f).forEach { r ->
+            val arcTopLeft = Offset(cx - r, cy - r)
+            val arcSize = Size(r * 2f, r * 2f)
+            drawArc(
+                color = Color.White,
+                startAngle = -55f,
+                sweepAngle = 110f,
+                useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcSize,
+                style = wavesStyle
+            )
+            drawArc(
+                color = Color.White,
+                startAngle = 125f,
+                sweepAngle = 110f,
+                useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcSize,
+                style = wavesStyle
             )
         }
     }
