@@ -8,10 +8,10 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,8 +20,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -42,35 +40,35 @@ fun QrScannerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BlackBackground)
-            .padding(16.dp),
+            .background(Background)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // Header
+        // ── Cabecera ───────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = TextWhite)
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Surface)
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = TextPrimary)
             }
-            Text(
-                text = "ESCANEAR CÓDIGO QR",
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = TextWhite
-            )
+            Text(text = "Escanear QR", style = Typography.titleLarge)
         }
 
-        // CameraX Viewfinder
+        // ── Visor de cámara ────────────────────────────────────
         Box(
             modifier = Modifier
                 .size(280.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color.Black)
-                .border(2.dp, NeonEmerald, RoundedCornerShape(20.dp)),
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
             if (!hasCameraError) {
@@ -105,28 +103,24 @@ fun QrScannerScreen(
                 )
             }
 
-            // Scanning Reticle Frame
+            // Marco de escaneo discreto
             Box(
                 modifier = Modifier
                     .size(180.dp)
-                    .border(2.dp, NeonEmerald.copy(alpha = 0.8f), RoundedCornerShape(12.dp))
+                    .border(2.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(16.dp))
             )
 
             if (hasCameraError) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(20.dp)
                 ) {
+                    Text(text = "📷", fontSize = 28.sp)
                     Text(
-                        text = "📷",
-                        fontSize = 28.sp
-                    )
-                    Text(
-                        text = "No se pudo abrir la cámara.\nConcede el permiso de cámara o usa la opción manual.",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        color = TextWhite,
+                        text = "No se pudo abrir la cámara.\nConcede el permiso o añade el ID manual en Amigos.",
+                        style = Typography.bodyMedium,
+                        color = TextPrimary,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
@@ -135,25 +129,21 @@ fun QrScannerScreen(
 
         Text(
             text = "Apunta la cámara al código QR de otro usuario de Flippy.",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
-            color = TextGray
+            style = Typography.bodyMedium
         )
 
-        // Quick Demo Contacts for easy testing
+        // ── Contactos demo para pruebas ────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(PanelBackground)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Surface)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "O ELIGE UN CONTACTO DEMO DE PRUEBA:",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
-                color = TextGray
+                text = "O prueba con un contacto demo",
+                style = Typography.labelMedium
             )
 
             listOf("FLIP-BOT", "FLIP-8921", "FLIP-3142").forEach { demoId ->
@@ -163,10 +153,13 @@ fun QrScannerScreen(
                         onContactScanned(demoId)
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = CardBackground, contentColor = NeonEmerald),
-                    shape = RoundedCornerShape(8.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SurfaceElevated,
+                        contentColor = TextPrimary
+                    ),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Emparejar con $demoId", fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    Text("Emparejar con $demoId", fontSize = 13.sp)
                 }
             }
         }
