@@ -141,7 +141,19 @@ fun ContactsScreen(
             if (showInfoCard) add(RowItem.InfoCard)
             add(RowItem.Share)
             add(RowItem.Divider)
-            if (filteredFriends.isNotEmpty()) {
+
+            // ── «Tus amigos en Flippy» (donde antes iban los contactos
+            //    de ejemplo): ahora van los usuarios REALES que tienen
+            //    cuenta/app — los ya agregados Y los detectados en tu
+            //    agenda por su correo o número de teléfono ──
+            val matchedNotAdded = withFlippy.filter { dc ->
+                uiState.contacts.none {
+                    it.id.equals(dc.matched!!.flippy_id, ignoreCase = true)
+                }
+            }
+            if (filteredFriends.isNotEmpty() ||
+                (contactsGranted && matchedNotAdded.isNotEmpty())
+            ) {
                 add(RowItem.FriendsTitle)
                 filteredFriends.forEach { contact ->
                     add(
@@ -152,15 +164,25 @@ fun ContactsScreen(
                         )
                     )
                 }
-            }
-            add(RowItem.DiscoverTitle)
-            if (!contactsGranted) {
-                add(RowItem.Permission)
-            } else {
-                // Tarjeta para guardar TU número (detección por teléfono)
-                if (uiState.profilePhone.isNullOrBlank() && !phoneDismissed) {
-                    add(RowItem.PhoneCard)
+                if (contactsGranted) {
+                    matchedNotAdded.forEach { dc ->
+                        add(RowItem.Matched(contact = dc, alreadyAdded = false))
+                    }
                 }
+            }
+
+            // ── «Personas que podrías conocer»: solo quienes AÚN no
+            //    tienen Flippy (para invitarlos) ──
+            val phoneCardVisible = contactsGranted &&
+                uiState.profilePhone.isNullOrBlank() && !phoneDismissed
+            if (!contactsGranted) {
+                add(RowItem.DiscoverTitle)
+                add(RowItem.Permission)
+            } else if (phoneCardVisible || withoutFlippy.isNotEmpty() ||
+                filteredDevice.isEmpty()
+            ) {
+                add(RowItem.DiscoverTitle)
+                if (phoneCardVisible) add(RowItem.PhoneCard)
                 if (filteredDevice.isEmpty()) {
                     add(
                         RowItem.Empty(
@@ -168,16 +190,6 @@ fun ContactsScreen(
                                 "No encontramos contactos en tu teléfono."
                             else
                                 "Sin resultados para \"$searchQuery\"."
-                        )
-                    )
-                }
-                withFlippy.forEach { dc ->
-                    add(
-                        RowItem.Matched(
-                            contact = dc,
-                            alreadyAdded = uiState.contacts.any {
-                                it.id.equals(dc.matched!!.flippy_id, ignoreCase = true)
-                            }
                         )
                     )
                 }
