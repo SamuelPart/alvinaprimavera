@@ -36,8 +36,47 @@ El proyecto está estructurado con **Gradle Kotlin DSL (`build.gradle.kts`)** pa
 ### 4. Servicio en Segundo Plano (Background & Lock Screen)
 - **`WalkieTalkieForegroundService`:** Servicio en primer plano nativo de Android con notificación persistente (`microphone`), permitiendo recibir y reproducir audio incluso con el teléfono bloqueado o con la app minimizada.
 
-### 5. Comunicación en Tiempo Real
-- **WebSocket Nativo con OkHttp:** Protocolo bidireccional de baja latencia para señalización PTT (`ptt_start`, `ptt_end`), medición de Ping/RTT en vivo y entrega instantánea de paquetes de voz.
+### 5. Comunicación en Tiempo Real (Supabase en la nube)
+- **Supabase Realtime:** los mensajes de voz y la señalización PTT (`ptt start/end`) viajan como filas en tablas Postgres y llegan al instante por suscripción Realtime — sin servidor propio.
+- **Supabase Storage:** los audios WAV se suben al bucket público `flippy-audio` y cualquier dispositivo los descarga y reproduce.
+- **Supabase Postgrest:** perfiles, canales, contactos e historial de mensajes persisten en la nube.
+- **Fallback offline:** si no configuras credenciales de Supabase, la app usa automáticamente el servidor WebSocket local con OkHttp (`backend/server.js`).
+
+---
+
+## ☁️ Conectar con Supabase (paso a paso)
+
+Toda la app funciona sobre Supabase cuando hay credenciales configuradas. El código ya está listo (`SupabaseRepository.kt` + `FlippyViewModel.kt`); solo falta tu proyecto en la nube:
+
+1. **Crea un proyecto** gratis en [supabase.com](https://supabase.com).
+2. **Crea las tablas, el bucket y Realtime:** en tu proyecto abre **SQL Editor → New query**, pega el contenido **completo** de [`supabase/schema.sql`](supabase/schema.sql) y pulsa **Run**. Esto crea:
+   - Tablas: `profiles`, `channels`, `contacts`, `voice_messages`, `ptt_events`
+   - Bucket público de Storage: `flippy-audio`
+   - Publicación Realtime para `voice_messages` y `ptt_events`
+
+   > ⚠️ Si tu proyecto ya tenía tablas viejas de Flippy con otra estructura y el script da un error de tipo (ej. `invalid input syntax for type uuid`), ejecuta primero [`supabase/reset.sql`](supabase/reset.sql) **una sola vez** (borra las 5 tablas viejas) y luego vuelve a correr `schema.sql` completo.
+3. **Copia tus credenciales:** en **Project Settings → API** copia la **Project URL** y la **anon/public key**.
+4. **Configura `local.properties`** en la raíz del proyecto (usa [`local.properties.example`](local.properties.example) como plantilla):
+   ```properties
+   supabase.url=https://TU-PROYECTO.supabase.co
+   supabase.anon_key=TU-CLAVE-ANON
+   ```
+5. **Gradle Sync y Run ▶️.** Verás tus operadores, canales, mensajes y audios aparecer en el dashboard de Supabase en tiempo real.
+
+> 💡 Dos dispositivos (o emuladores) con el mismo proyecto Supabase se escuchan entre sí al instante por la frecuencia activa.
+
+---
+
+## 🔐 Inicio de sesión (Supabase Auth)
+
+La app abre con un **splash animado** (2 s) y luego pide iniciar sesión con **correo electrónico + contraseña**: la primera vez pulsas **«Crear cuenta»** (eliges tu correo y una contraseña de mínimo 6 caracteres) y luego entras siempre con **«Entrar»**. **No se envía ningún correo ni código de verificación**: el acceso es directo al instante, sin SMTP, sin límites de correos por hora y sin consolas externas — 100% gratis.
+
+Configuración (ya viene casi todo activado por defecto):
+1. **Authentication → Sign In / Providers → Email: ON** ✓
+2. **Desactiva «Confirm email»** (misma pantalla, interruptor abajo) y pulsa **Save**. Así, al crear la cuenta, la sesión inicia al instante sin correo de confirmación.
+3. Listo. Sin códigos, sin esperas de correo.
+
+> 🔒 La sesión queda guardada en el dispositivo: al reabrir, el splash pasa directo a la app. El botón de cerrar sesión (rojo) está en la pantalla principal.
 
 ---
 
@@ -83,9 +122,9 @@ Flippy/
 
 ---
 
-## 📡 Ejecutar el Servidor Backend WebSocket
+## 📡 Backend WebSocket local (opcional / fallback)
 
-El backend en tiempo real se encuentra en la carpeta `backend/`:
+Este servidor solo es necesario si **no** configuraste Supabase arriba (la app lo detecta automáticamente). Se encuentra en la carpeta `backend/`:
 
 ```bash
 cd backend

@@ -1,9 +1,13 @@
 package com.flippy.walkietalkie.ui.screens
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -13,15 +17,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.flippy.walkietalkie.R
 import com.flippy.walkietalkie.audio.SoundEffects
 import com.flippy.walkietalkie.ui.components.*
 import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.FlippyUiState
+import kotlinx.coroutines.delay
 
 @Composable
 fun MainConsoleScreen(
@@ -31,259 +41,222 @@ fun MainConsoleScreen(
     onStartPtt: () -> Unit,
     onStopPtt: () -> Unit,
     onSelectFilter: (com.flippy.walkietalkie.data.model.VoiceFilter) -> Unit,
-    onOpenQr: () -> Unit,
     onOpenScanner: () -> Unit,
-    onUpdateServerUrl: (String) -> Unit = {},
+    onAddFriends: () -> Unit = {},
+    onToggleAutoPlay: () -> Unit = {},
+    onOpenPlaybackModes: () -> Unit = {},
+    onAvatarClick: () -> Unit = {},
+    onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var showServerDialog by remember { mutableStateOf(false) }
-    var tempServerUrl by remember(uiState.serverUrl) { mutableStateOf(uiState.serverUrl) }
+    var showAddFriendsDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BlackBackground)
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .background(Background)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // Top Tactical Status Bar
+        // ── Cabecera: avatar conectado + modo de reproducción ──
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(PanelBackground)
-                .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f)
             ) {
+                // Imagen de usuario circular (foto o iniciales) + punto verde;
+                // tocar abre la configuración de perfil (o Mi QR si ya está creado)
+                val profileInitials = remember(uiState.userProfile.username) {
+                    uiState.userProfile.username
+                        .split(" ")
+                        .filter { it.isNotBlank() }
+                        .take(2)
+                        .joinToString("") { it.first().uppercaseChar().toString() }
+                        .ifEmpty { "F" }
+                }
+                val profilePhoto = remember(uiState.profilePhotoPath) {
+                    uiState.profilePhotoPath?.let { BitmapFactory.decodeFile(it)?.asImageBitmap() }
+                }
                 Box(
+                    contentAlignment = Alignment.BottomEnd,
+                    modifier = Modifier.clickable { onAvatarClick() }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Accent, AccentBlue))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (profilePhoto != null) {
+                            Image(
+                                bitmap = profilePhoto,
+                                contentDescription = "Mi perfil",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Text(
+                                text = profileInitials,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = if (profileInitials.length > 1) 16.sp else 18.sp
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(13.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Background, CircleShape)
+                            .background(Color(0xFF4ADE80))
+                    )
+                }
+
+                // Botón de modo: tocar alterna reproducción↔silencio,
+                // el icono ⇅ abre «Seleccionar modo»
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(NeonEmerald)
-                )
-                Text(
-                    text = "EN LÍNEA",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextWhite
-                )
-                Text(
-                    text = "• ${uiState.pingMs}ms",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    color = NeonEmerald
-                )
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                IconButton(
-                    onClick = { showServerDialog = true },
-                    modifier = Modifier.size(32.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(SurfaceElevated)
+                        .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Link,
-                        contentDescription = "Enlace del Servidor",
-                        tint = NeonAmber,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onOpenScanner,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCodeScanner,
-                        contentDescription = "Escanear QR",
-                        tint = NeonEmerald,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onOpenQr,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode,
-                        contentDescription = "Mi QR",
-                        tint = NeonCyan,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-
-        // Server URL Dialog
-        if (showServerDialog) {
-            AlertDialog(
-                onDismissRequest = { showServerDialog = false },
-                title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable { onToggleAutoPlay() }
+                            .padding(vertical = 6.dp)
                     ) {
-                        Icon(Icons.Default.Link, contentDescription = null, tint = NeonAmber)
+                        Icon(
+                            imageVector = if (uiState.autoPlayIncoming)
+                                Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                            contentDescription = null,
+                            tint = if (uiState.autoPlayIncoming) Accent else TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Enlace del Servidor WebSocket",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            color = TextWhite
+                            text = if (uiState.autoPlayIncoming)
+                                "Reproducción automática" else "Modo silencio",
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
                         )
                     }
-                },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Conecta la app a tu servidor en la nube o red local (ej: Render, Railway, ngrok, o IP local):",
-                            fontSize = 11.sp,
-                            color = TextGray
-                        )
-                        OutlinedTextField(
-                            value = tempServerUrl,
-                            onValueChange = { tempServerUrl = it },
-                            placeholder = { Text("ws://... o wss://...", fontSize = 11.sp) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            onUpdateServerUrl(tempServerUrl)
-                            showServerDialog = false
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonEmerald, contentColor = BlackBackground)
+                    IconButton(
+                        onClick = onOpenPlaybackModes,
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Text("Guardar Enlace", fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.UnfoldMore,
+                            contentDescription = "Seleccionar modo",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showServerDialog = false }) {
-                        Text("Cancelar")
-                    }
-                },
-                containerColor = PanelBackground
-            )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                // Agregar amigos: abre la ventana emergente
+                IconButton(
+                    onClick = { showAddFriendsDialog = true },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.EmojiPeople,
+                        contentDescription = "Agregar amigos",
+                        tint = Accent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                // Añadir contactos: escáner QR directo
+                IconButton(onClick = onOpenScanner, modifier = Modifier.size(38.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.PersonAdd,
+                        contentDescription = "Añadir contactos",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
 
-        // Tactical LCD Radio Screen
+        // ── Tarjeta de estado del canal ────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(LcdGreenBg)
-                .border(2.dp, LcdGreenBorder, RoundedCornerShape(16.dp))
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Surface)
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // LCD Header: Mode & Status
+            // Estado + temporizador
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(RoundedCornerShape(5.dp))
-                            .background(
-                                when {
-                                    uiState.isRecording -> NeonRed
-                                    uiState.isIncoming -> NeonAmber
-                                    else -> NeonEmerald
-                                }
-                            )
-                    )
-                    Text(
-                        text = when {
-                            uiState.isRecording -> "🔴 TX TRANSMITIENDO"
-                            uiState.isIncoming -> "⚡ RX ${uiState.incomingSenderName}"
-                            else -> "🟢 CANAL LISTO [ESPERA]"
-                        },
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            uiState.isRecording -> NeonRed
-                            uiState.isIncoming -> NeonAmber
-                            else -> NeonEmerald
-                        }
-                    )
-                }
+                StatusPill(uiState)
 
                 Text(
-                    text = if (uiState.isRecording) String.format("00:%02d", uiState.recordDurationSec.toInt()) else "00:00 / 00:30",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    color = LcdGreenText
+                    text = if (uiState.isRecording)
+                        String.format("0:%02d / 0:30", uiState.recordDurationSec.toInt())
+                    else
+                        "0:00",
+                    style = Typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (uiState.isRecording) RecordRed else TextTertiary
                 )
             }
 
-            // Target Banner
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF0C2417))
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Canal o contacto activo
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = if (uiState.isChannelMode) {
-                        "📻 CANAL: ${uiState.activeChannel.name} (${uiState.activeChannel.frequency})"
-                    } else {
-                        "👤 DIRECTO: ${uiState.activeContact?.username} [${uiState.activeContact?.id}]"
-                    },
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = LcdGreenText
+                    text = if (uiState.isChannelMode)
+                        uiState.activeChannel.name
+                    else
+                        uiState.activeContact?.username ?: "Directo",
+                    style = Typography.headlineMedium
                 )
-
                 Text(
-                    text = "FX: ${uiState.selectedFilter.displayName}",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    color = TextGray
+                    text = if (uiState.isChannelMode)
+                        "${uiState.activeChannel.frequency} · ${uiState.activeChannel.membersCount} en línea"
+                    else
+                        "Llamada directa · ${uiState.activeContact?.id ?: ""}",
+                    style = Typography.bodyMedium
                 )
             }
 
-            // Oscilloscope Canvas
+            // Forma de onda en vivo
             OscilloscopeCanvas(
                 waveform = waveformSamples,
                 isLive = uiState.isRecording || uiState.isIncoming,
                 isSpeaking = uiState.isRecording
             )
 
-            // VU Meter
-            VuMeter(level = if (uiState.isRecording) micLevel else if (uiState.isIncoming) 60f else 2f)
+            VuMeter(
+                level = if (uiState.isRecording) micLevel else if (uiState.isIncoming) 55f else 0f
+            )
         }
 
-        // Voice Filter Selector
+        // ── Filtros de voz ─────────────────────────────────────
         VoiceFilterSelector(
             selectedFilter = uiState.selectedFilter,
             onSelectFilter = onSelectFilter
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Giant PTT Button
+        // ── Botón PTT ──────────────────────────────────────────
         PttButton(
             isRecording = uiState.isRecording,
             recordDurationSec = uiState.recordDurationSec,
@@ -291,49 +264,248 @@ fun MainConsoleScreen(
             onPressEnd = onStopPtt
         )
 
-        // Tactical Presets
+        // ── Respuestas rápidas ─────────────────────────────────
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(PanelBackground)
-                .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
-                .padding(12.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "RESPUESTAS RÁPIDAS TÁCTICAS:",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
-                color = TextGray
+                text = "Respuestas rápidas",
+                style = Typography.labelMedium
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("10-4 👍", "🚨 SOS", "📻 Libre", "Cambio").forEach { preset ->
+                    OutlinedButton(
+                        onClick = { SoundEffects.playRogerBeep() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
+                        shape = RoundedCornerShape(19.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
+                    ) {
+                        Text(text = preset, fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+
+    // ── Ventana emergente: agregar amigos ──
+    if (showAddFriendsDialog) {
+        AddFriendsDialog(
+            onAddFriend = {
+                showAddFriendsDialog = false
+                onAddFriends()
+            },
+            onDismiss = { showAddFriendsDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun StatusPill(uiState: FlippyUiState) {
+    val bgColor: androidx.compose.ui.graphics.Color
+    val fgColor: androidx.compose.ui.graphics.Color
+    val label: String
+
+    when {
+        uiState.isRecording -> {
+            bgColor = RecordRedContainer
+            fgColor = RecordRed
+            label = "Transmitiendo"
+        }
+        uiState.isIncoming -> {
+            bgColor = AccentBlueContainer
+            fgColor = AccentBlue
+            label = "Recibiendo · ${uiState.incomingSenderName}"
+        }
+        else -> {
+            bgColor = AccentContainer
+            fgColor = Accent
+            label = "En línea"
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(bgColor)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(fgColor)
+        )
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = fgColor,
+            maxLines = 1
+        )
+    }
+}
+
+// ============================================================
+//  Ventana emergente «Añade a un amigo» · estilo iPhone
+//  Imagen de referencia + título + subtítulo + 2 botones que
+//  cambian de color al seleccionarse, con X para cerrar.
+// ============================================================
+
+@Composable
+private fun AddFriendsDialog(
+    onAddFriend: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected by remember { mutableStateOf<String?>(null) }
+
+    // El botón seleccionado cambia de color un instante y luego actúa
+    LaunchedEffect(selected) {
+        when (selected) {
+            "add" -> {
+                delay(280)
+                onAddFriend()
+            }
+            "later" -> {
+                delay(280)
+                onDismiss()
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.62f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color(0xF2171D27))
+                .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(28.dp))
+                .clickable(enabled = false) {} // no cerrar al tocar la tarjeta
+                .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // ── X para cerrar ──
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.10f))
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cerrar",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // ── Imagen de referencia para agregar amigos ──
+            Image(
+                painter = painterResource(id = R.drawable.add_friends_ref),
+                contentDescription = "Agregar amigos",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(165.dp)
+                    .clip(RoundedCornerShape(20.dp))
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Añade a un amigo para empezar",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Text(
+                text = "Añade a un amigo para empezar a usar momentos.",
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // ── Botón principal: blanco → menta al seleccionarse ──
+            Button(
+                onClick = { selected = "add" },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(26.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selected == "add") Accent else Color.White,
+                    contentColor = Color.Black
+                )
             ) {
-                listOf("¡10-4 Copiado!", "🚨 Emergencia", "📻 Canal Libre", "Cambio y Fuera").forEach { preset ->
-                    Button(
-                        onClick = { SoundEffects.playRogerBeep() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(32.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = CardBackground,
-                            contentColor = TextWhite
-                        ),
-                        contentPadding = PaddingValues(2.dp),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = preset,
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            maxLines = 1
-                        )
-                    }
-                }
+                Text(
+                    text = "Añadir amigo",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // ── Botón secundario de cristal: se ilumina al tocarse ──
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        if (selected == "later") Color.White.copy(alpha = 0.22f)
+                        else Color.White.copy(alpha = 0.08f)
+                    )
+                    .border(
+                        1.dp,
+                        Color.White.copy(alpha = 0.14f),
+                        RoundedCornerShape(26.dp)
+                    )
+                    .clickable { selected = "later" }
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Quizá más tarde",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }

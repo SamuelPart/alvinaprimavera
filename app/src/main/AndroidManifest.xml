@@ -25,6 +25,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
+    <!-- Contactos de amigos (onboarding 2 de 3) -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!-- Ignorar optimización de batería para recibir audio en 2do plano (onboarding 3 de 3) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <application
         android:name=".FlippyApp"
         android:allowBackup="true"
@@ -71,6 +77,17 @@
             android:name=".service.WalkieTalkieForegroundService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <!-- FileProvider: captura de foto de perfil con la cámara -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.flippy.walkietalkie.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 
