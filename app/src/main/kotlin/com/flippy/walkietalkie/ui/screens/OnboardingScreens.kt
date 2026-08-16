@@ -173,7 +173,6 @@ private fun MicPermissionPage(onContinue: () -> Unit) {
     LaunchedEffect(justGranted) {
         if (justGranted && granted) {
             delay(600)
-            justGranted = false
             onContinue()
         }
     }
@@ -218,7 +217,6 @@ private fun ContactsPermissionPage(onContinue: () -> Unit) {
     LaunchedEffect(justGranted) {
         if (justGranted && granted) {
             delay(600)
-            justGranted = false
             onContinue()
         }
     }
