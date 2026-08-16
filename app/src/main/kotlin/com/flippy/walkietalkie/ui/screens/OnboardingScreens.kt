@@ -6,7 +6,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -281,7 +280,7 @@ private fun NotificationsBatteryPage(onFinish: () -> Unit) {
         title = "No te pierdas los mensajes de tus amigos",
         subtitle = when {
             batteryStep ->
-                "Y para seguir escuchando con la pantalla apagada, permite que Flippy ignore la optimización de batería."
+                "Y para seguir escuchando con la pantalla apagada, busca Flippy en la lista y márcala como «Sin restricciones de batería»."
             allDone ->
                 "Listo: recibirás los mensajes de tus amigos al instante, incluso con la app cerrada."
             else ->
@@ -300,12 +299,11 @@ private fun NotificationsBatteryPage(onFinish: () -> Unit) {
                 OnboardingGhostButton(text = "Ahora no") { notifSkipped = true }
             }
             batteryStep -> {
+                // Vía aceptada por Google Play: abre Ajustes → Optimización de batería
                 OnboardingPrimaryButton(text = "Mantener siempre activa") {
-                    val intent = Intent(
-                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                        Uri.parse("package:${context.packageName}")
+                    batteryLauncher.launch(
+                        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                     )
-                    batteryLauncher.launch(intent)
                 }
                 OnboardingGhostButton(text = "Ahora no") { batterySkipped = true }
             }

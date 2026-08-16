@@ -28,9 +28,6 @@
     <!-- Contactos de amigos (onboarding 2 de 3) -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
-    <!-- Ignorar optimización de batería para recibir audio en 2do plano (onboarding 3 de 3) -->
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
     <application
         android:name=".FlippyApp"
         android:allowBackup="true"

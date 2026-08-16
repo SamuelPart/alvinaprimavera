@@ -122,6 +122,18 @@ Flippy/
 
 ---
 
+## 🏪 Camino a Play Store (cuando quieras publicar)
+
+La app ya está casi lista para producción. Lo que falta/recomendado:
+
+- ✅ **Batería sin exención especial:** la app abre *Ajustes → Optimización de batería* para que el usuario marque Flippy como «Sin restricciones» (la exención directa `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` fue eliminada: Google la restringe y puede rechazar apps que la usen).
+- 🔏 **Política de privacidad (URL pública):** obligatoria porque la app usa `RECORD_AUDIO`, `CAMERA` y `READ_CONTACTS`. En Play Console se llena también el formulario **Data Safety** (qué datos se recogen: audio, contactos de solo lectura, fotos de perfil en Supabase).
+- 🎯 **targetSdk vigente:** al publicar, sube `targetSdk` a la API que Play exija ese año (hoy mínimo 34; conviene 35+).
+- 🔑 **Firma de release:** generar un keystore propio y compilar AAB (`./gradlew bundleRelease`) con Play App Signing activado.
+- 🗂️ **Versión:** definir `versionCode`/`versionName` en `app/build.gradle.kts` (por defecto Android Studio usa 1 / "1.0").
+
+---
+
 ## 📡 Backend WebSocket local (opcional / fallback)
 
 Este servidor solo es necesario si **no** configuraste Supabase arriba (la app lo detecta automáticamente). Se encuentra en la carpeta `backend/`:
