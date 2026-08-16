@@ -63,6 +63,7 @@ data class FlippyUiState(
     val quietHoursEnabled: Boolean = false,
     val profilePhotoPath: String? = null,
     val profileCreated: Boolean = false,
+    val profilePhone: String? = null,
     val serverUrl: String = "ws://10.0.2.2:3000/ws"
 )
 
@@ -91,6 +92,7 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             quietHoursEnabled = prefs.getBoolean("quiet_hours", false),
             profilePhotoPath = prefs.getString("profile_photo", null),
             profileCreated = prefs.getBoolean("profile_done", false),
+            profilePhone = prefs.getString("profile_phone", null),
             serverUrl = prefs.getString("server_url", "ws://10.0.2.2:3000/ws") ?: "ws://10.0.2.2:3000/ws"
         )
     )
@@ -205,6 +207,13 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             SupabaseRepository.currentUserEmail()?.let { email ->
                 try {
                     SupabaseRepository.updateAccountEmail(p.id, email.lowercase())
+                } catch (_: Exception) {
+                }
+            }
+            // Re-sube tu número si ya lo habías guardado (detección por teléfono)
+            prefs.getString("profile_phone", null)?.let { phone ->
+                try {
+                    SupabaseRepository.updateProfilePhone(p.id, phone)
                 } catch (_: Exception) {
                 }
             }
@@ -701,6 +710,25 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
     /** Botón rápido del encabezado: alterna reproducción ↔ silencio. */
     fun toggleAutoPlayIncoming() = setAutoPlayIncoming(!_uiState.value.autoPlayIncoming)
+
+    /** Guarda tu número (opcional) para que te encuentren por teléfono. */
+    fun saveAccountPhone(phone: String) {
+        val clean = phone.trim()
+        if (clean.isEmpty()) return
+        prefs.edit().putString("profile_phone", clean).apply()
+        _uiState.update { it.copy(profilePhone = clean) }
+        if (useSupabase) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    SupabaseRepository.updateProfilePhone(_uiState.value.userProfile.id, clean)
+                } catch (e: Exception) {
+                    Log.e(TAG, "No se pudo guardar tu número en Supabase", e)
+                }
+            }
+        }
+        // Recalcula coincidencias: quizá algún contacto ya te tenía con ese número
+        refreshDeviceContacts()
+    }
 
     /** Sincronizar con No molestar del sistema. */
     fun setDndSync(enabled: Boolean) {

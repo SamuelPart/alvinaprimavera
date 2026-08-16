@@ -12,13 +12,16 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -30,10 +33,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,12 +52,14 @@ import com.flippy.walkietalkie.data.supabase.SupabaseRepository
 import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.FlippyUiState
 import com.flippy.walkietalkie.ui.viewmodel.FlippyViewModel.DeviceContactMatch
+import kotlinx.coroutines.launch
 
 // ============================================================
 //  Pantalla «Añadir amigos» (estilo iPhone: vidrio + difuminados)
 //  · Buscar por ID de Flippy, correo o teléfono
 //  · Compartir tu invitación por apps de mensajería
-//  · Detecta qué contactos de tu teléfono ya tienen Flippy
+//  · Detecta quién ya tiene Flippy (por correo o por teléfono)
+//  · Barra alfabética lateral para saltar rápido por la lista
 // ============================================================
 
 @Composable
@@ -63,12 +72,17 @@ fun ContactsScreen(
     onAddContactById: (String) -> Unit,
     onOpenScanner: () -> Unit,
     onOpenQrProfile: () -> Unit,
+    onSavePhone: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showInfoCard by rememberSaveable { mutableStateOf(true) }
+    var phoneDismissed by rememberSaveable { mutableStateOf(false) }
+    var phoneInput by rememberSaveable { mutableStateOf("") }
     var contactsGranted by remember { mutableStateOf(hasContactsPermission) }
 
     // El permiso se pidió en el onboarding (2 de 3); si lo negó,
@@ -112,6 +126,91 @@ fun ContactsScreen(
     val withFlippy = filteredDevice.filter { it.matched != null }
     val withoutFlippy = filteredDevice.filter { it.matched == null }
 
+    // ── La lista se construye como datos → la barra alfabética puede
+    //    calcular a qué fila saltar con cada letra ──
+    val rowItems = remember(
+        showFlipIdShortcut, flipIdCandidate, showInfoCard, filteredFriends,
+        uiState.activeContact?.id, uiState.isChannelMode, uiState.contacts,
+        contactsGranted, filteredDevice, uiState.profilePhone, phoneDismissed,
+        searchQuery
+    ) {
+        buildList {
+            add(RowItem.TopBar)
+            add(RowItem.Search)
+            if (showFlipIdShortcut) add(RowItem.FlipId(flipIdCandidate))
+            if (showInfoCard) add(RowItem.InfoCard)
+            add(RowItem.Share)
+            add(RowItem.Divider)
+            if (filteredFriends.isNotEmpty()) {
+                add(RowItem.FriendsTitle)
+                filteredFriends.forEach { contact ->
+                    add(
+                        RowItem.Friend(
+                            contact = contact,
+                            active = contact.id == uiState.activeContact?.id &&
+                                !uiState.isChannelMode
+                        )
+                    )
+                }
+            }
+            add(RowItem.DiscoverTitle)
+            if (!contactsGranted) {
+                add(RowItem.Permission)
+            } else {
+                // Tarjeta para guardar TU número (detección por teléfono)
+                if (uiState.profilePhone.isNullOrBlank() && !phoneDismissed) {
+                    add(RowItem.PhoneCard)
+                }
+                if (filteredDevice.isEmpty()) {
+                    add(
+                        RowItem.Empty(
+                            if (searchQuery.isBlank())
+                                "No encontramos contactos en tu teléfono."
+                            else
+                                "Sin resultados para \"$searchQuery\"."
+                        )
+                    )
+                }
+                withFlippy.forEach { dc ->
+                    add(
+                        RowItem.Matched(
+                            contact = dc,
+                            alreadyAdded = uiState.contacts.any {
+                                it.id.equals(dc.matched!!.flippy_id, ignoreCase = true)
+                            }
+                        )
+                    )
+                }
+                withoutFlippy.forEach { dc -> add(RowItem.Invite(dc)) }
+            }
+            add(RowItem.Bottom)
+        }
+    }
+
+    // Letras presentes en la lista de contactos del teléfono → índice
+    val letterOf = { dc: DeviceContactMatch ->
+        dc.name.trim().firstOrNull()?.uppercaseChar()?.takeIf { it.isLetter() }
+    }
+    val letterFirstIndex = remember(rowItems) {
+        buildMap<Char, Int> {
+            rowItems.forEachIndexed { index, item ->
+                val letter = when (item) {
+                    is RowItem.Matched -> letterOf(item.contact)
+                    is RowItem.Invite -> letterOf(item.contact)
+                    else -> null
+                }
+                if (letter != null && letter !in this) put(letter, index)
+            }
+        }
+    }
+    val alphabet = letterFirstIndex.keys.sorted()
+    val letterCellPx = with(LocalDensity.current) { 15.dp.toPx() }
+
+    fun jumpToLetter(letter: Char) {
+        val index = letterFirstIndex[letter] ?: return
+        scope.launch { listState.animateScrollToItem(index) }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -136,75 +235,73 @@ fun ContactsScreen(
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
+            // +14.dp extra a la derecha para no tapar botones con la barra A→Z
+            contentPadding = PaddingValues(start = 20.dp, end = 34.dp, top = 14.dp, bottom = 14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ── Barra superior: atrás · título · escáner QR ──
-            item(key = "topbar") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    GlassIconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Atrás",
-                            tint = Color.White
+            items(rowItems, key = { it.key }) { item ->
+                when (item) {
+                    // ── Barra superior: atrás · título · escáner QR ──
+                    RowItem.TopBar -> Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        GlassIconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Atrás",
+                                tint = Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Text(
+                            text = "Añadir amigos",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            modifier = Modifier.weight(1f)
                         )
+                        GlassIconButton(onClick = onOpenScanner) {
+                            Icon(
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = "Escanear código QR",
+                                tint = Color.White
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Text(
-                        text = "Añadir amigos",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    GlassIconButton(onClick = onOpenScanner) {
-                        Icon(
-                            imageVector = Icons.Default.QrCodeScanner,
-                            contentDescription = "Escanear código QR",
-                            tint = Color.White
-                        )
-                    }
-                }
-            }
 
-            // ── Buscador de cristal ──
-            item(key = "search") {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Agregar o buscar amigos") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = TextSecondary
+                    // ── Buscador de cristal ──
+                    RowItem.Search -> OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Agregar o buscar amigos") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = TextSecondary
+                            )
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(28.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = Color.White.copy(alpha = 0.11f),
+                            unfocusedContainerColor = Color.White.copy(alpha = 0.07f),
+                            cursorColor = Accent,
+                            focusedBorderColor = Accent.copy(alpha = 0.9f),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
+                            focusedPlaceholderColor = TextTertiary,
+                            unfocusedPlaceholderColor = TextTertiary
                         )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedContainerColor = Color.White.copy(alpha = 0.11f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.07f),
-                        cursorColor = Accent,
-                        focusedBorderColor = Accent.copy(alpha = 0.9f),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
-                        focusedPlaceholderColor = TextTertiary,
-                        unfocusedPlaceholderColor = TextTertiary
                     )
-                )
-            }
 
-            // ── Atajo: agregar directo con un ID de Flippy ──
-            if (showFlipIdShortcut) {
-                item(key = "flipid") {
-                    Row(
+                    // ── Atajo: agregar directo con un ID de Flippy ──
+                    is RowItem.FlipId -> Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
@@ -234,7 +331,7 @@ fun ContactsScreen(
                                 color = TextSecondary
                             )
                             Text(
-                                text = flipIdCandidate,
+                                text = item.candidate,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Accent
@@ -242,7 +339,7 @@ fun ContactsScreen(
                         }
                         Button(
                             onClick = {
-                                onAddContactById(flipIdCandidate)
+                                onAddContactById(item.candidate)
                                 searchQuery = ""
                                 Toast.makeText(
                                     context, "¡Amigo agregado! 🎉", Toast.LENGTH_SHORT
@@ -268,13 +365,9 @@ fun ContactsScreen(
                             )
                         }
                     }
-                }
-            }
 
-            // ── Ventanita informativa (descartable con la X) ──
-            if (showInfoCard) {
-                item(key = "infocard") {
-                    Row(
+                    // ── Ventanita informativa (descartable con la X) ──
+                    RowItem.InfoCard -> Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
@@ -309,100 +402,165 @@ fun ContactsScreen(
                             )
                         }
                     }
-                }
-            }
 
-            // ── Compartir tu invitación (deslizable →) ──
-            item(key = "share") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    ShareActionItem(
-                        label = "Compartir",
-                        onClick = { shareInvite(context, null, inviteText) }
+                    // ── Compartir tu invitación (deslizable →) ──
+                    RowItem.Share -> Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
-                        ColorShareCircle(Accent) {
+                        ShareActionItem(
+                            label = "Compartir",
+                            onClick = { shareInvite(context, null, inviteText) }
+                        ) {
+                            ColorShareCircle(Accent) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+                        ShareActionItem(
+                            label = "Mi QR",
+                            onClick = onOpenQrProfile
+                        ) {
+                            ColorShareCircle(AccentBlue) {
+                                Icon(
+                                    imageVector = Icons.Default.QrCode,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+                        BrandShareItem(
+                            label = "WhatsApp",
+                            drawableRes = R.drawable.ic_share_whatsapp,
+                            packageName = "com.whatsapp",
+                            inviteText = inviteText
+                        )
+                        BrandShareItem(
+                            label = "Telegram",
+                            drawableRes = R.drawable.ic_share_telegram,
+                            packageName = "org.telegram.messenger",
+                            inviteText = inviteText
+                        )
+                        BrandShareItem(
+                            label = "Instagram",
+                            drawableRes = R.drawable.ic_share_instagram,
+                            packageName = "com.instagram.android",
+                            inviteText = inviteText
+                        )
+                        BrandShareItem(
+                            label = "Messenger",
+                            drawableRes = R.drawable.ic_share_messenger,
+                            packageName = "com.facebook.orca",
+                            inviteText = inviteText
+                        )
+                    }
+
+                    RowItem.Divider -> HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.10f)
+                    )
+
+                    RowItem.FriendsTitle -> SectionTitle("Tus amigos en Flippy")
+
+                    is RowItem.Friend -> FriendRow(
+                        contact = item.contact,
+                        isActive = item.active,
+                        onHablar = { onSelectContact(item.contact) }
+                    )
+
+                    RowItem.DiscoverTitle -> SectionTitle("Personas que podrías conocer")
+
+                    // ── Tarjeta opcional: guarda tu número ──
+                    RowItem.PhoneCard -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Share,
+                                imageVector = Icons.Default.PhoneIphone,
                                 contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(24.dp)
+                                tint = Accent
                             )
+                            Text(
+                                text = "Añade tu número para que tus amigos " +
+                                    "también te encuentren por teléfono en Flippy.",
+                                fontSize = 13.sp,
+                                lineHeight = 17.sp,
+                                color = TextPrimary
+                            )
+                        }
+                        OutlinedTextField(
+                            value = phoneInput,
+                            onValueChange = { phoneInput = it },
+                            placeholder = { Text("Ej: +51 999 123 456") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedContainerColor = Color.White.copy(alpha = 0.11f),
+                                unfocusedContainerColor = Color.White.copy(alpha = 0.07f),
+                                cursorColor = Accent,
+                                focusedBorderColor = Accent.copy(alpha = 0.9f),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
+                                focusedPlaceholderColor = TextTertiary,
+                                unfocusedPlaceholderColor = TextTertiary
+                            )
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            TextButton(
+                                onClick = { phoneDismissed = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Ahora no", color = TextSecondary, fontSize = 13.sp)
+                            }
+                            Button(
+                                onClick = {
+                                    if (phoneInput.isNotBlank()) {
+                                        onSavePhone(phoneInput)
+                                        Toast.makeText(
+                                            context, "¡Número guardado! 📱",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(24.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Accent,
+                                    contentColor = Color.Black
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = "Guardar",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
                         }
                     }
 
-                    ShareActionItem(
-                        label = "Mi QR",
-                        onClick = onOpenQrProfile
-                    ) {
-                        ColorShareCircle(AccentBlue) {
-                            Icon(
-                                imageVector = Icons.Default.QrCode,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-
-                    BrandShareItem(
-                        label = "WhatsApp",
-                        drawableRes = R.drawable.ic_share_whatsapp,
-                        packageName = "com.whatsapp",
-                        inviteText = inviteText
-                    )
-                    BrandShareItem(
-                        label = "Telegram",
-                        drawableRes = R.drawable.ic_share_telegram,
-                        packageName = "org.telegram.messenger",
-                        inviteText = inviteText
-                    )
-                    BrandShareItem(
-                        label = "Instagram",
-                        drawableRes = R.drawable.ic_share_instagram,
-                        packageName = "com.instagram.android",
-                        inviteText = inviteText
-                    )
-                    BrandShareItem(
-                        label = "Messenger",
-                        drawableRes = R.drawable.ic_share_messenger,
-                        packageName = "com.facebook.orca",
-                        inviteText = inviteText
-                    )
-                }
-            }
-
-            item(key = "divider") {
-                HorizontalDivider(color = Color.White.copy(alpha = 0.10f))
-            }
-
-            // ── Tus amigos ya agregados: toca «Hablar» para activarlos ──
-            if (filteredFriends.isNotEmpty()) {
-                item(key = "friends_title") {
-                    SectionTitle("Tus amigos en Flippy")
-                }
-                items(filteredFriends, key = { "friend_${it.id}" }) { contact ->
-                    FriendRow(
-                        contact = contact,
-                        isActive = contact.id == uiState.activeContact?.id &&
-                            !uiState.isChannelMode,
-                        onHablar = { onSelectContact(contact) }
-                    )
-                }
-                item(key = "spacer1") { Spacer(modifier = Modifier.height(2.dp)) }
-            }
-
-            // ── Personas que podrías conocer (contactos del teléfono) ──
-            item(key = "discover_title") {
-                SectionTitle("Personas que podrías conocer")
-            }
-
-            if (!contactsGranted) {
-                item(key = "permission") {
-                    Column(
+                    RowItem.Permission -> Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
@@ -447,54 +605,112 @@ fun ContactsScreen(
                             )
                         }
                     }
-                }
-            } else {
-                if (filteredDevice.isEmpty()) {
-                    item(key = "empty") {
-                        Text(
-                            text = if (searchQuery.isBlank())
-                                "No encontramos contactos en tu teléfono."
-                            else
-                                "Sin resultados para \"$searchQuery\".",
-                            fontSize = 13.sp,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                }
 
-                // Los que YA tienen Flippy van arriba de todos ✨
-                items(withFlippy, key = { "match_${it.matched!!.flippy_id}" }) { dc ->
-                    FlippyContactRow(
-                        contact = dc,
-                        alreadyAdded = uiState.contacts.any {
-                            it.id.equals(dc.matched!!.flippy_id, ignoreCase = true)
-                        },
+                    is RowItem.Empty -> Text(
+                        text = item.message,
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+
+                    // Los que YA tienen Flippy van arriba de todos ✨
+                    is RowItem.Matched -> FlippyContactRow(
+                        contact = item.contact,
+                        alreadyAdded = item.alreadyAdded,
                         onAdd = {
-                            onAddContactById(dc.matched!!.flippy_id)
+                            onAddContactById(item.contact.matched!!.flippy_id)
                             Toast.makeText(
-                                context, "¡${dc.matched!!.username} agregado! 🎉",
+                                context,
+                                "¡${item.contact.matched!!.username} agregado! 🎉",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
                     )
-                }
 
-                // Los que aún no la tienen: invítalos por SMS ✉️
-                items(
-                    withoutFlippy,
-                    key = { "plain_${it.phone ?: it.email ?: it.name}" }
-                ) { dc ->
-                    InviteContactRow(
-                        contact = dc,
-                        onInvite = { smsInvite(context, dc.phone, inviteText) }
+                    // Los que aún no la tienen: invítalos por SMS ✉️
+                    is RowItem.Invite -> InviteContactRow(
+                        contact = item.contact,
+                        onInvite = { smsInvite(context, item.contact.phone, inviteText) }
                     )
+
+                    RowItem.Bottom -> Spacer(modifier = Modifier.height(12.dp))
                 }
             }
+        }
 
-            item(key = "bottom") { Spacer(modifier = Modifier.height(12.dp)) }
+        // ── Barra alfabética lateral (A · B · C …) ──
+        // Toca una letra o DESLIZA el dedo sobre ella para saltar.
+        if (alphabet.isNotEmpty()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 3.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .pointerInput(alphabet) {
+                        fun jumpAt(yPx: Float) {
+                            val i = (yPx / letterCellPx)
+                                .toInt()
+                                .coerceIn(0, alphabet.lastIndex)
+                            jumpToLetter(alphabet[i])
+                        }
+                        detectVerticalDragGestures(
+                            onDragStart = { offset -> jumpAt(offset.y) }
+                        ) { change, _ ->
+                            change.consume()
+                            jumpAt(change.position.y)
+                        }
+                    }
+            ) {
+                alphabet.forEach { letter ->
+                    Box(
+                        modifier = Modifier
+                            .height(15.dp)
+                            .width(20.dp)
+                            .clickable { jumpToLetter(letter) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = letter.toString(),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Accent
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+// ============================================================
+//  Modelo de la lista (para la barra alfabética)
+// ============================================================
+
+private sealed interface RowItem {
+    val key: String
+
+    object TopBar : RowItem { override val key = "topbar" }
+    object Search : RowItem { override val key = "search" }
+    data class FlipId(val candidate: String) : RowItem { override val key = "flipid" }
+    object InfoCard : RowItem { override val key = "infocard" }
+    object Share : RowItem { override val key = "share" }
+    object Divider : RowItem { override val key = "divider" }
+    object FriendsTitle : RowItem { override val key = "friends_title" }
+    data class Friend(val contact: User, val active: Boolean) : RowItem {
+        override val key = "friend_${contact.id}"
+    }
+    object DiscoverTitle : RowItem { override val key = "discover_title" }
+    object PhoneCard : RowItem { override val key = "phone_card" }
+    object Permission : RowItem { override val key = "permission" }
+    data class Empty(val message: String) : RowItem { override val key = "empty" }
+    data class Matched(val contact: DeviceContactMatch, val alreadyAdded: Boolean) : RowItem {
+        override val key = "match_${contact.matched!!.flippy_id}"
+    }
+    data class Invite(val contact: DeviceContactMatch) : RowItem {
+        override val key = "plain_${contact.phone ?: contact.email ?: contact.name}"
+    }
+    object Bottom : RowItem { override val key = "bottom" }
 }
 
 // ============================================================
@@ -724,7 +940,7 @@ private fun FlippyContactRow(
     }
 }
 
-/** Contacto del teléfono sin Flippy: nombre, número y botón blanco «+ Invitar». */
+/** Contacto sin Flippy: avatar «#», nombre, número y botón blanco «+ Invitar». */
 @Composable
 private fun InviteContactRow(
     contact: DeviceContactMatch,
@@ -739,7 +955,21 @@ private fun InviteContactRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        ContactAvatar(photoUrl = null, name = contact.name, sizeDp = 44)
+        // Avatar «#»: contacto de la agenda que aún no usa Flippy
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(SurfaceElevated),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "#",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextSecondary
+            )
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = contact.name,
@@ -766,7 +996,19 @@ private fun InviteContactRow(
             ),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
         ) {
-            Text(text = "+ Invitar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = Color.Black,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = "Invitar",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.Black
+            )
         }
     }
 }

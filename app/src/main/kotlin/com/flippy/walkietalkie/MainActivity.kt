@@ -284,6 +284,7 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onAddContactById = { viewModel.addContactById(it) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
                     onOpenQrProfile = { navController.navigate(Screen.QrProfile.route) },
+                    onSavePhone = { viewModel.saveAccountPhone(it) },
                     onBack = { navController.popBackStack() }
                 )
             }

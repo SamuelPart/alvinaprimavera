@@ -240,6 +240,13 @@ object SupabaseRepository {
         ) { filter { eq("flippy_id", flippyId) } }
     }
 
+    /** Guarda tu número en tu perfil (detección de amigos por teléfono). */
+    suspend fun updateProfilePhone(flippyId: String, phone: String) {
+        supabase.postgrest.from("profiles").update(
+            { set("phone", phone) }
+        ) { filter { eq("flippy_id", flippyId) } }
+    }
+
     // ---------- Canales ----------
 
     suspend fun fetchChannels(): List<ChannelDto> =
