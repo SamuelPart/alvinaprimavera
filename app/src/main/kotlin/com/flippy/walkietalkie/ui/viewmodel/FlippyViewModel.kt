@@ -55,11 +55,8 @@ data class FlippyUiState(
         Channel("ch-chill", "Chill & Música", "88.500 MHz", "Charlas libres y audio", "Headphones", true),
         Channel("ch-gaming", "Squad / Gaming", "512.000 MHz", "Coordinación rápida de juego", "Gamepad2", true)
     ),
-    val contacts: List<User> = listOf(
-        User("FLIP-BOT", "Flippy AI Walkie", "🤖", UserStatus.ONLINE, isBot = true),
-        User("FLIP-8921", "Alex Patrol", "🐺", UserStatus.ONLINE),
-        User("FLIP-3142", "Echo Base", "📡", UserStatus.ONLINE)
-    ),
+    // Sin amigos de ejemplo: solo aparecen los que el usuario agrega de verdad
+    val contacts: List<User> = emptyList(),
     val messages: List<VoiceMessage> = emptyList(),
     val autoPlayIncoming: Boolean = true,
     val dndSyncEnabled: Boolean = false,

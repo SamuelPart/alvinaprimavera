@@ -131,37 +131,5 @@ fun QrScannerScreen(
             text = "Apunta la cámara al código QR de otro usuario de Flippy.",
             style = Typography.bodyMedium
         )
-
-        // ── Contactos demo para pruebas ────────────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(Surface)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "O prueba con un contacto demo",
-                style = Typography.labelMedium
-            )
-
-            listOf("FLIP-BOT", "FLIP-8921", "FLIP-3142").forEach { demoId ->
-                Button(
-                    onClick = {
-                        SoundEffects.playRogerBeep()
-                        onContactScanned(demoId)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SurfaceElevated,
-                        contentColor = TextPrimary
-                    ),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text("Emparejar con $demoId", fontSize = 13.sp)
-                }
-            }
-        }
     }
 }

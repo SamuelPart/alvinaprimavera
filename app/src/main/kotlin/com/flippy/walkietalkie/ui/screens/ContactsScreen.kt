@@ -12,9 +12,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -310,22 +312,24 @@ fun ContactsScreen(
                 }
             }
 
-            // ── Compartir tu invitación ──
+            // ── Compartir tu invitación (deslizable →) ──
             item(key = "share") {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     ShareActionItem(
                         label = "Compartir",
                         onClick = { shareInvite(context, null, inviteText) }
                     ) {
-                        GlassShareCircle {
+                        ColorShareCircle(Accent) {
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                tint = Color.Black,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -334,12 +338,12 @@ fun ContactsScreen(
                         label = "Mi QR",
                         onClick = onOpenQrProfile
                     ) {
-                        GlassShareCircle {
+                        ColorShareCircle(AccentBlue) {
                             Icon(
                                 imageVector = Icons.Default.QrCode,
                                 contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                tint = Color.Black,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -431,7 +435,7 @@ fun ContactsScreen(
                             },
                             shape = RoundedCornerShape(24.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White,
+                                containerColor = Accent,
                                 contentColor = Color.Black
                             ),
                             modifier = Modifier.fillMaxWidth()
@@ -514,12 +518,12 @@ private fun GlassIconButton(
 }
 
 @Composable
-private fun GlassShareCircle(content: @Composable () -> Unit) {
+private fun ColorShareCircle(color: Color, content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
-            .size(50.dp)
+            .size(56.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.10f)),
+            .background(color),
         contentAlignment = Alignment.Center
     ) {
         content()
@@ -574,7 +578,7 @@ private fun BrandShareItem(
             contentDescription = label,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(50.dp)
+                .size(56.dp)
                 .clip(CircleShape)
         )
     }
@@ -591,7 +595,7 @@ private fun FriendRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(if (isActive) AccentBlueContainer else Color.White.copy(alpha = 0.06f))
+            .background(if (isActive) AccentContainer else Color.White.copy(alpha = 0.06f))
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -621,16 +625,22 @@ private fun FriendRow(
             onClick = onHablar,
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isActive) AccentBlue else Color.White,
+                containerColor = Accent,
                 contentColor = Color.Black
             ),
             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
         ) {
-            Text(
-                text = if (isActive) "Activo" else "Hablar",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
+            if (isActive) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "Activo", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            } else {
+                Text(text = "Hablar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
