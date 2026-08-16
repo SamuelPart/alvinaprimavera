@@ -180,12 +180,14 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                     Log.i(TAG, "🎙️ PTT ${event.event_type} de ${event.sender_name}")
                     when (event.event_type) {
                         "start" -> {
+                            // Silencio total mientras la otra persona graba 🤫
                             _uiState.update { it.copy(isIncoming = true, incomingSenderName = event.sender_name) }
-                            SoundEffects.playIncomingAlert()
                         }
                         "end" -> {
+                            // Terminó de grabar → sonido de notificación 🔔 y el
+                            // mensaje llega enseguida y se reproduce al instante
                             _uiState.update { it.copy(isIncoming = false) }
-                            SoundEffects.playRogerBeep()
+                            SoundEffects.playIncomingAlert()
                         }
                     }
                 }
@@ -200,27 +202,73 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun registerProfileInSupabase() {
-        val p = _uiState.value.userProfile
+        val email = SupabaseRepository.currentUserEmail()?.lowercase()
         try {
-            SupabaseRepository.getOrCreateProfile(p.id, p.username, p.avatar)
+            // ¿Este correo ya tenía una cuenta Flippy? (p. ej. reinstalaste
+            // la app) → RESTAURAMOS tu ID, nombre, avatar, número y foto;
+            // no necesitas configurar tu perfil de nuevo.
+            val existing = email?.let { SupabaseRepository.fetchProfileByEmail(it) }
+            val local = _uiState.value.userProfile
+            if (existing != null && !existing.flippy_id.equals(local.id, ignoreCase = true)) {
+                restoreCloudProfile(existing)
+            } else {
+                SupabaseRepository.getOrCreateProfile(local.id, local.username, local.avatar)
+            }
+            val myId = _uiState.value.userProfile.id
             // Guarda el email de la cuenta para que tus amigos te encuentren por correo
-            SupabaseRepository.currentUserEmail()?.let { email ->
+            email?.let {
                 try {
-                    SupabaseRepository.updateAccountEmail(p.id, email.lowercase())
+                    SupabaseRepository.updateAccountEmail(myId, it)
                 } catch (_: Exception) {
                 }
             }
             // Re-sube tu número si ya lo habías guardado (detección por teléfono)
             prefs.getString("profile_phone", null)?.let { phone ->
                 try {
-                    SupabaseRepository.updateProfilePhone(p.id, phone)
+                    SupabaseRepository.updateProfilePhone(myId, phone)
                 } catch (_: Exception) {
                 }
             }
-            Log.i(TAG, "Perfil registrado en Supabase: ${p.id} (${p.username})")
+            Log.i(TAG, "Perfil sincronizado con Supabase: $myId")
         } catch (e: Exception) {
             Log.e(TAG, "Error registrando perfil en Supabase (¿ejecutaste schema.sql?)", e)
         }
+    }
+
+    /** Recupera tu identidad de la nube tras reinstalar la app. */
+    private suspend fun restoreCloudProfile(p: ProfileDto) {
+        // Foto (si tenías una): del bucket a un archivo local
+        val photoFile = File(getApplication<Application>().filesDir, "profile_photo.jpg")
+        val hasPhoto = try {
+            val bytes = SupabaseRepository.downloadAudio("avatars/${p.flippy_id}.jpg")
+            photoFile.writeBytes(bytes)
+            true
+        } catch (e: Exception) {
+            false
+        }
+
+        prefs.edit()
+            .putString("flippy_id", p.flippy_id)
+            .putString("flippy_username", p.username)
+            .putString("flippy_avatar", p.avatar)
+            .putBoolean("profile_done", true)
+            .putString("profile_photo", if (hasPhoto) photoFile.absolutePath else null)
+            .apply()
+        p.phone?.let { prefs.edit().putString("profile_phone", it).apply() }
+
+        _uiState.update {
+            it.copy(
+                userProfile = User(id = p.flippy_id, username = p.username, avatar = p.avatar),
+                profileCreated = true,
+                profilePhotoPath = if (hasPhoto) photoFile.absolutePath else null,
+                profilePhone = p.phone
+            )
+        }
+        Log.i(TAG, "Perfil RESTAURADO desde la nube: ${p.flippy_id} (${p.username}) 📸✨")
+
+        // Con tu ID recuperado, recargamos tus amigos y la detección de contactos
+        loadContactsFromSupabase()
+        refreshDeviceContacts()
     }
 
     // ============================================================
@@ -405,12 +453,13 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             webSocketClient.events.collect { event ->
                 when (event) {
                     is SocketEvent.PttStarted -> {
+                        // Silencio total mientras la otra persona graba 🤫
                         _uiState.update { it.copy(isIncoming = true, incomingSenderName = event.senderName) }
-                        SoundEffects.playIncomingAlert()
                     }
                     is SocketEvent.PttEnded -> {
+                        // Terminó de grabar → sonido de notificación 🔔
                         _uiState.update { it.copy(isIncoming = false) }
-                        SoundEffects.playRogerBeep()
+                        SoundEffects.playIncomingAlert()
                     }
                     is SocketEvent.MessageReceived -> {
                         _uiState.update {
@@ -453,13 +502,10 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
         val startT = System.currentTimeMillis()
         durationTimerJob = viewModelScope.launch {
+            // Sin límite automático: graba hasta que SUELTES el botón 🎙️
             while (_uiState.value.isRecording) {
                 val elapsed = (System.currentTimeMillis() - startT) / 1000f
                 _uiState.update { it.copy(recordDurationSec = elapsed) }
-                if (elapsed >= 30f) {
-                    stopPtt()
-                    break
-                }
                 delay(100)
             }
         }

@@ -230,6 +230,14 @@ object SupabaseRepository {
     suspend fun fetchProfiles(): List<ProfileDto> =
         supabase.postgrest.from("profiles").select().decodeList()
 
+    /** Perfil asociado a un correo de cuenta (para restaurar tu identidad
+        si reinstalas la app). */
+    suspend fun fetchProfileByEmail(email: String): ProfileDto? =
+        supabase.postgrest.from("profiles")
+            .select { filter { eq("account_email", email) } }
+            .decodeList<ProfileDto>()
+            .firstOrNull()
+
     /** Email de la sesión actual (sirve para encontrar amigos por correo). */
     fun currentUserEmail(): String? = supabase.auth.currentUserOrNull()?.email
 
