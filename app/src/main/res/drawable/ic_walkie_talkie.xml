@@ -1,12 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícono de notificación: silueta del glifo de ondas Flippy (el sistema lo tiñe solo) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
+    android:width="24dp"
+    android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+
+    <!-- Punto central -->
     <path
-        android:fillColor="#00FF88"
-        android:pathData="M12,1a3,3 0,0 0,-3 3v8a3,3 0,0 0,6 0V4a3,3 0,0 0,-3 -3z"/>
+        android:fillColor="#FFFFFF"
+        android:pathData="M10.44,12a1.56,1.56 0,1 0,3.12 0a1.56,1.56 0,1 0,-3.12 0" />
+
+    <!-- Onda interior derecha -->
     <path
-        android:fillColor="#00FF88"
-        android:pathData="M19,10v2a7,7 0,0 1,-14 0v-2H3v2a9,9 0,0 0,8 8.94V22h2v-1.06A9,9 0,0 0,21 12v-2h-2z"/>
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M13.78,9.45 A3.11,3.11 0 0 1 13.78,14.55" />
+
+    <!-- Onda interior izquierda -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M10.22,14.55 A3.11,3.11 0 0 1 10.22,9.45" />
+
+    <!-- Onda exterior derecha -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M15.06,7.63 A5.33,5.33 0 0 1 15.06,16.37" />
+
+    <!-- Onda exterior izquierda -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M8.94,16.37 A5.33,5.33 0 0 1 8.94,7.63" />
 </vector>
