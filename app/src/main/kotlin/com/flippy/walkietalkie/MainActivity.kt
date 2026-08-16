@@ -111,10 +111,11 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // «Amigos» ya no vive en el menú inferior: la pantalla de añadir
+    // amigos se abre desde los botones 👋 / 👤+ de la consola principal.
     val bottomNavItems = listOf(
         Screen.Ptt,
         Screen.Channels,
-        Screen.Contacts,
         Screen.History
     )
 
@@ -271,17 +272,19 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
 
             composable(Screen.Contacts.route) {
                 ContactsScreen(
-                    userProfile = uiState.userProfile,
-                    contacts = uiState.contacts,
-                    activeContactId = uiState.activeContact?.id,
+                    uiState = uiState,
+                    deviceContacts = viewModel.deviceContacts
+                        .collectAsStateWithLifecycle().value,
+                    hasContactsPermission = viewModel.hasContactsPermission(),
+                    onRefreshDeviceContacts = { viewModel.refreshDeviceContacts() },
                     onSelectContact = {
                         viewModel.selectDirectContact(it)
-                        navController.navigate(Screen.Ptt.route)
+                        navController.popBackStack()
                     },
                     onAddContactById = { viewModel.addContactById(it) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
                     onOpenQrProfile = { navController.navigate(Screen.QrProfile.route) },
-                    myPhotoPath = uiState.profilePhotoPath
+                    onBack = { navController.popBackStack() }
                 )
             }
 

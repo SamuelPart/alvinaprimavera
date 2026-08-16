@@ -1,11 +1,15 @@
 package com.flippy.walkietalkie.ui.viewmodel
 
 import android.app.Application
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
+import android.provider.ContactsContract
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.flippy.walkietalkie.audio.*
@@ -16,6 +20,7 @@ import com.flippy.walkietalkie.network.WebSocketClient
 import com.flippy.walkietalkie.service.WalkieTalkieForegroundService
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -199,10 +204,132 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         val p = _uiState.value.userProfile
         try {
             SupabaseRepository.getOrCreateProfile(p.id, p.username, p.avatar)
+            // Guarda el email de la cuenta para que tus amigos te encuentren por correo
+            SupabaseRepository.currentUserEmail()?.let { email ->
+                try {
+                    SupabaseRepository.updateAccountEmail(p.id, email.lowercase())
+                } catch (_: Exception) {
+                }
+            }
             Log.i(TAG, "Perfil registrado en Supabase: ${p.id} (${p.username})")
         } catch (e: Exception) {
             Log.e(TAG, "Error registrando perfil en Supabase (¿ejecutaste schema.sql?)", e)
         }
+    }
+
+    // ============================================================
+    //  Contactos del dispositivo → detectar quién ya usa Flippy
+    //  Cruza por CORREO (perfiles.account_email) o por TELÉFONO
+    //  (perfiles.phone, cuando esté disponible en el futuro).
+    // ============================================================
+
+    data class DeviceContactMatch(
+        val name: String,
+        val phone: String?,
+        val email: String?,
+        val matched: ProfileDto? // null = aún no tiene Flippy instalado/registrado
+    )
+
+    private val _deviceContacts = MutableStateFlow<List<DeviceContactMatch>>(emptyList())
+    val deviceContacts = _deviceContacts.asStateFlow()
+
+    fun hasContactsPermission(): Boolean = ContextCompat.checkSelfPermission(
+        getApplication(), Manifest.permission.READ_CONTACTS
+    ) == PackageManager.PERMISSION_GRANTED
+
+    fun refreshDeviceContacts() {
+        if (!hasContactsPermission()) {
+            _deviceContacts.value = emptyList()
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val raw = readDeviceContacts()
+            val profiles = if (useSupabase) {
+                try {
+                    SupabaseRepository.fetchProfiles()
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            } else emptyList()
+            val myId = _uiState.value.userProfile.id
+
+            val result = raw.map { dc ->
+                val hit = profiles.firstOrNull { p ->
+                    p.flippy_id != myId && (
+                        (!dc.email.isNullOrBlank() && !p.account_email.isNullOrBlank() &&
+                            dc.email.equals(p.account_email, ignoreCase = true)) ||
+                        (!dc.phone.isNullOrBlank() && !p.phone.isNullOrBlank() &&
+                            phoneDigitsMatch(dc.phone, p.phone))
+                        )
+                }
+                DeviceContactMatch(dc.name, dc.phone, dc.email, hit)
+            }.sortedWith(
+                compareByDescending<DeviceContactMatch> { it.matched != null }
+                    .thenBy { it.name.lowercase() }
+            )
+            _deviceContacts.value = result
+        }
+    }
+
+    private data class RawContact(val name: String, val phone: String?, val email: String?)
+
+    private fun readDeviceContacts(): List<RawContact> {
+        val resolver = getApplication<Application>().contentResolver
+        val out = LinkedHashMap<String, RawContact>()
+
+        // Teléfonos
+        resolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            ),
+            null, null, null
+        )?.use { c ->
+            val nameIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val numIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            while (c.moveToNext()) {
+                val name = c.getString(nameIdx) ?: continue
+                val num = c.getString(numIdx) ?: continue
+                val key = num.filter(Char::isDigit).takeLast(9)
+                if (key.length >= 8 && !out.containsKey(key)) {
+                    out[key] = RawContact(name, num, null)
+                }
+            }
+        }
+
+        // Emails (se enganchan al contacto del mismo nombre o van aparte)
+        resolver.query(
+            ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+            arrayOf(
+                ContactsContract.CommonDataKinds.Email.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Email.ADDRESS
+            ),
+            null, null, null
+        )?.use { c ->
+            val nameIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Email.DISPLAY_NAME)
+            val addrIdx = c.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS)
+            while (c.moveToNext()) {
+                val name = c.getString(nameIdx) ?: continue
+                val addr = c.getString(addrIdx)?.trim()?.lowercase() ?: continue
+                val existing = out.entries.firstOrNull { it.value.name.equals(name, true) }
+                if (existing != null) {
+                    out[existing.key] = existing.value.copy(email = addr)
+                } else {
+                    val key = "em:$addr"
+                    if (!out.containsKey(key)) out[key] = RawContact(name, null, addr)
+                }
+            }
+        }
+        return out.values.toList()
+    }
+
+    /** Coincidencia de teléfonos por sufijo de dígitos (ignora prefijos de país). */
+    private fun phoneDigitsMatch(a: String, b: String): Boolean {
+        val da = a.filter(Char::isDigit)
+        val db = b.filter(Char::isDigit)
+        if (da.length < 8 || db.length < 8) return false
+        return da.takeLast(9) == db.takeLast(9)
     }
 
     private suspend fun loadChannelsFromSupabase() {

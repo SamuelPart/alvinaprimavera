@@ -13,8 +13,15 @@ create table if not exists public.profiles (
     flippy_id   text primary key,
     username    text not null,
     avatar      text not null default '📻',
+    -- Para que tus amigos te encuentren desde sus contactos del teléfono
+    account_email text,
+    phone       text,
     created_at  timestamptz not null default now()
 );
+
+-- Si tu tabla profiles YA existía, ejecuta solo esto:
+-- alter table public.profiles add column if not exists account_email text;
+-- alter table public.profiles add column if not exists phone text;
 
 create table if not exists public.channels (
     id          text primary key,

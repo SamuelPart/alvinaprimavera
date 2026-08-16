@@ -38,6 +38,8 @@ data class ProfileDto(
     val flippy_id: String,
     val username: String,
     val avatar: String = "📻",
+    val account_email: String? = null,
+    val phone: String? = null,
     val created_at: String? = null
 )
 
@@ -227,6 +229,16 @@ object SupabaseRepository {
 
     suspend fun fetchProfiles(): List<ProfileDto> =
         supabase.postgrest.from("profiles").select().decodeList()
+
+    /** Email de la sesión actual (sirve para encontrar amigos por correo). */
+    fun currentUserEmail(): String? = supabase.auth.currentUserOrNull()?.email
+
+    /** Guarda el email de la cuenta en tu perfil (detección de amigos). */
+    suspend fun updateAccountEmail(flippyId: String, email: String) {
+        supabase.postgrest.from("profiles").update(
+            { set("account_email", email) }
+        ) { filter { eq("flippy_id", flippyId) } }
+    }
 
     // ---------- Canales ----------
 
