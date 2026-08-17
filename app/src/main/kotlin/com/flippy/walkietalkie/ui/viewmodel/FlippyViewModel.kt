@@ -837,6 +837,15 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         refreshDeviceContacts()
     }
 
+    /** Chatea con el personaje de IA: agrega al bot a tus amigos y lo activa. */
+    fun openAiBot() {
+        val bot = User("FLIP-BOT", "Flippy AI Walkie", "🤖", UserStatus.ONLINE, isBot = true)
+        if (_uiState.value.contacts.none { it.id == "FLIP-BOT" }) {
+            _uiState.update { it.copy(contacts = it.contacts + bot) }
+        }
+        selectDirectContact(bot)
+    }
+
     /** Sincronizar con No molestar del sistema. */
     fun setDndSync(enabled: Boolean) {
         _uiState.update { it.copy(dndSyncEnabled = enabled) }

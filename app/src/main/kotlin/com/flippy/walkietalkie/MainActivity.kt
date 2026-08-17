@@ -32,6 +32,7 @@ private const val RouteEmailAuth = "email_auth"
 private const val RouteOnboarding = "onboarding"
 private const val RoutePlaybackMode = "playback_mode"
 private const val RouteProfileSetup = "profile_setup"
+private const val RoutePhoneVerify = "phone_verify"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
@@ -266,7 +267,25 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     },
                     onAddContactById = { viewModel.addContactById(it) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
-                    onOpenQrProfile = { navController.navigate(Screen.QrProfile.route) },
+                    onOpenPhoneVerify = { navController.navigate(RoutePhoneVerify) },
+                    onCreateGroup = {
+                        navController.navigate(Screen.Channels.route) {
+                            popUpTo(Screen.Ptt.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onChatWithAi = {
+                        viewModel.openAiBot()
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ── Verificar número (país con bandera + código automático) ──
+            composable(RoutePhoneVerify) {
+                PhoneVerifyScreen(
                     onSavePhone = { viewModel.saveAccountPhone(it) },
                     onBack = { navController.popBackStack() }
                 )

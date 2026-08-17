@@ -11,20 +11,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,16 +37,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
-import com.flippy.walkietalkie.R
 import com.flippy.walkietalkie.data.model.User
 import com.flippy.walkietalkie.data.supabase.SupabaseRepository
 import com.flippy.walkietalkie.ui.theme.*
@@ -56,11 +53,9 @@ import com.flippy.walkietalkie.ui.viewmodel.FlippyViewModel.DeviceContactMatch
 import kotlinx.coroutines.launch
 
 // ============================================================
-//  Pantalla «Añadir amigos» (estilo iPhone: vidrio + difuminados)
-//  · Buscar por ID de Flippy, correo o teléfono
-//  · Compartir tu invitación por apps de mensajería
-//  · Detecta quién ya tiene Flippy (por correo o por teléfono)
-//  · Barra alfabética lateral para saltar rápido por la lista
+//  Pantalla «Contactos» · todo para encontrar a tu gente:
+//  🔍 buscador · 🧭 y 📱 ventanitas · 4 opciones · cards de
+//  sugerencias · invitar desde contactos · barra alfabética
 // ============================================================
 
 @Composable
@@ -72,8 +67,9 @@ fun ContactsScreen(
     onSelectContact: (User) -> Unit,
     onAddContactById: (String) -> Unit,
     onOpenScanner: () -> Unit,
-    onOpenQrProfile: () -> Unit,
-    onSavePhone: (String) -> Unit,
+    onOpenPhoneVerify: () -> Unit,
+    onCreateGroup: () -> Unit,
+    onChatWithAi: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -82,12 +78,10 @@ fun ContactsScreen(
     val listState = rememberLazyListState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showInfoCard by rememberSaveable { mutableStateOf(true) }
-    var phoneDismissed by rememberSaveable { mutableStateOf(false) }
-    var phoneInput by rememberSaveable { mutableStateOf("") }
+    var showVerifyCard by rememberSaveable { mutableStateOf(true) }
     var contactsGranted by remember { mutableStateOf(hasContactsPermission) }
+    var dismissedSuggestions by remember { mutableStateOf(setOf<String>()) }
 
-    // El permiso se pidió en el onboarding (2 de 3); si lo negó,
-    // volvemos a pedirlo desde la tarjeta explicativa de abajo.
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -103,8 +97,7 @@ fun ContactsScreen(
             "Descárgala y agrégame con mi ID: ${uiState.userProfile.id}"
     }
 
-    // ── Datos derivados de la búsqueda (fuera del LazyColumn:
-    //    su bloque de contenido no es componible) ──
+    // ── Datos derivados de la búsqueda ──
     val flipIdCandidate = searchQuery.trim().uppercase()
     val showFlipIdShortcut =
         flipIdCandidate.startsWith("FLIP-") && flipIdCandidate.length >= 6
@@ -124,37 +117,32 @@ fun ContactsScreen(
                 it.email?.contains(searchQuery, ignoreCase = true) == true
         }
     }
-    val withFlippy = filteredDevice.filter { it.matched != null }
+    // Sugerencias: tienen Flippy y AÚN no están en tu lista
+    val suggestions = filteredDevice.filter { dc ->
+        dc.matched != null &&
+            uiState.contacts.none {
+                it.id.equals(dc.matched!!.flippy_id, ignoreCase = true)
+            } &&
+            dc.matched!!.flippy_id !in dismissedSuggestions
+    }
     val withoutFlippy = filteredDevice.filter { it.matched == null }
 
-    // ── La lista se construye como datos → la barra alfabética puede
-    //    calcular a qué fila saltar con cada letra ──
+    val verifyCardVisible = showVerifyCard && uiState.profilePhone.isNullOrBlank()
+
+    // ── Lista como datos (para que la barra A→Z calcule saltos) ──
     val rowItems = remember(
-        showFlipIdShortcut, flipIdCandidate, showInfoCard, filteredFriends,
-        uiState.activeContact?.id, uiState.isChannelMode, uiState.contacts,
-        contactsGranted, filteredDevice, uiState.profilePhone, phoneDismissed,
-        searchQuery
+        showFlipIdShortcut, flipIdCandidate, showInfoCard, verifyCardVisible,
+        filteredFriends, uiState.activeContact?.id, uiState.isChannelMode,
+        contactsGranted, suggestions, filteredDevice, withoutFlippy, searchQuery
     ) {
         buildList {
             add(RowItem.TopBar)
             add(RowItem.Search)
             if (showFlipIdShortcut) add(RowItem.FlipId(flipIdCandidate))
             if (showInfoCard) add(RowItem.InfoCard)
-            add(RowItem.Share)
-            add(RowItem.Divider)
-
-            // ── «Tus amigos en Flippy» (donde antes iban los contactos
-            //    de ejemplo): ahora van los usuarios REALES que tienen
-            //    cuenta/app — los ya agregados Y los detectados en tu
-            //    agenda por su correo o número de teléfono ──
-            val matchedNotAdded = withFlippy.filter { dc ->
-                uiState.contacts.none {
-                    it.id.equals(dc.matched!!.flippy_id, ignoreCase = true)
-                }
-            }
-            if (filteredFriends.isNotEmpty() ||
-                (contactsGranted && matchedNotAdded.isNotEmpty())
-            ) {
+            if (verifyCardVisible) add(RowItem.VerifyCard)
+            add(RowItem.QuickOptions)
+            if (filteredFriends.isNotEmpty()) {
                 add(RowItem.FriendsTitle)
                 filteredFriends.forEach { contact ->
                     add(
@@ -165,25 +153,16 @@ fun ContactsScreen(
                         )
                     )
                 }
-                if (contactsGranted) {
-                    matchedNotAdded.forEach { dc ->
-                        add(RowItem.Matched(contact = dc, alreadyAdded = false))
-                    }
-                }
             }
-
-            // ── «Personas que podrías conocer»: solo quienes AÚN no
-            //    tienen Flippy (para invitarlos) ──
-            val phoneCardVisible = contactsGranted &&
-                uiState.profilePhone.isNullOrBlank() && !phoneDismissed
+            add(RowItem.Divider)
+            add(RowItem.SuggestTitle)
             if (!contactsGranted) {
-                add(RowItem.DiscoverTitle)
                 add(RowItem.Permission)
-            } else if (phoneCardVisible || withoutFlippy.isNotEmpty() ||
-                filteredDevice.isEmpty()
-            ) {
-                add(RowItem.DiscoverTitle)
-                if (phoneCardVisible) add(RowItem.PhoneCard)
+            } else {
+                if (suggestions.isNotEmpty()) {
+                    add(RowItem.SuggestCarousel(suggestions))
+                }
+                add(RowItem.InviteTitle)
                 if (filteredDevice.isEmpty()) {
                     add(
                         RowItem.Empty(
@@ -200,19 +179,15 @@ fun ContactsScreen(
         }
     }
 
-    // Letras presentes en la lista de contactos del teléfono → índice
-    val letterOf = { dc: DeviceContactMatch ->
-        dc.name.trim().firstOrNull()?.uppercaseChar()?.takeIf { it.isLetter() }
-    }
+    // Letras para la barra lateral A→Z (sobre la lista de la agenda)
     val letterFirstIndex = remember(rowItems) {
         buildMap<Char, Int> {
             rowItems.forEachIndexed { index, item ->
-                val letter = when (item) {
-                    is RowItem.Matched -> letterOf(item.contact)
-                    is RowItem.Invite -> letterOf(item.contact)
-                    else -> null
+                if (item is RowItem.Invite) {
+                    val letter = item.contact.name.trim().firstOrNull()
+                        ?.uppercaseChar()?.takeIf { it.isLetter() }
+                    if (letter != null && letter !in this) put(letter, index)
                 }
-                if (letter != null && letter !in this) put(letter, index)
             }
         }
     }
@@ -250,13 +225,12 @@ fun ContactsScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            // +14.dp extra a la derecha para no tapar botones con la barra A→Z
             contentPadding = PaddingValues(start = 20.dp, end = 34.dp, top = 14.dp, bottom = 14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(rowItems, key = { it.key }) { item ->
                 when (item) {
-                    // ── Barra superior: atrás · título · escáner QR ──
+                    // ── Atrás · «Contactos» centrado · lector QR ──
                     RowItem.TopBar -> Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -268,12 +242,12 @@ fun ContactsScreen(
                                 tint = Color.White
                             )
                         }
-                        Spacer(modifier = Modifier.width(14.dp))
                         Text(
-                            text = "Añadir amigos",
-                            fontSize = 24.sp,
+                            text = "Contactos",
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary,
+                            textAlign = TextAlign.Center,
                             modifier = Modifier.weight(1f)
                         )
                         GlassIconButton(onClick = onOpenScanner) {
@@ -379,7 +353,7 @@ fun ContactsScreen(
                         }
                     }
 
-                    // ── Ventanita informativa (descartable con la X) ──
+                    // ── Ventanita 1: brújula + X ──
                     RowItem.InfoCard -> Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -396,7 +370,7 @@ fun ContactsScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Buscar por ID de Flippy, número de teléfono o correo " +
+                            text = "Busca por ID de Flippy, número de teléfono o correo " +
                                 "para encontrar a tus amigos en Flippy",
                             fontSize = 13.sp,
                             lineHeight = 17.sp,
@@ -416,70 +390,89 @@ fun ContactsScreen(
                         }
                     }
 
-                    // ── Compartir tu invitación (deslizable →) ──
-                    RowItem.Share -> Row(
+                    // ── Ventanita 2: verifica tu número + botón subrayado ──
+                    RowItem.VerifyCard -> Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(AccentBlue.copy(alpha = 0.10f))
+                            .padding(start = 14.dp, top = 12.dp, end = 4.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ShareActionItem(
-                            label = "Compartir",
-                            onClick = { shareInvite(context, null, inviteText) }
-                        ) {
-                            ColorShareCircle(Accent) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                        Icon(
+                            imageVector = Icons.Default.PhoneIphone,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Verifica tu número de teléfono para que sea " +
+                                    "más fácil para tus amigos encontrarte",
+                                fontSize = 13.sp,
+                                lineHeight = 17.sp,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Verificar mi número",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Accent,
+                                textDecoration = TextDecoration.Underline,
+                                modifier = Modifier.clickable { onOpenPhoneVerify() }
+                            )
                         }
-
-                        ShareActionItem(
-                            label = "Mi QR",
-                            onClick = onOpenQrProfile
+                        IconButton(
+                            onClick = { showVerifyCard = false },
+                            modifier = Modifier.size(34.dp)
                         ) {
-                            ColorShareCircle(AccentBlue) {
-                                Icon(
-                                    imageVector = Icons.Default.QrCode,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar aviso",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-
-                        BrandShareItem(
-                            label = "WhatsApp",
-                            drawableRes = R.drawable.ic_share_whatsapp,
-                            packageName = "com.whatsapp",
-                            inviteText = inviteText
-                        )
-                        BrandShareItem(
-                            label = "Telegram",
-                            drawableRes = R.drawable.ic_share_telegram,
-                            packageName = "org.telegram.messenger",
-                            inviteText = inviteText
-                        )
-                        BrandShareItem(
-                            label = "Instagram",
-                            drawableRes = R.drawable.ic_share_instagram,
-                            packageName = "com.instagram.android",
-                            inviteText = inviteText
-                        )
-                        BrandShareItem(
-                            label = "Messenger",
-                            drawableRes = R.drawable.ic_share_messenger,
-                            packageName = "com.facebook.orca",
-                            inviteText = inviteText
-                        )
                     }
 
-                    RowItem.Divider -> HorizontalDivider(
-                        color = Color.White.copy(alpha = 0.10f)
-                    )
+                    // ── 4 opciones rápidas con iconos modernos ──
+                    RowItem.QuickOptions -> Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        QuickOption(
+                            icon = Icons.Default.PersonAdd,
+                            label = "Añadir\namigos",
+                            tint = Accent,
+                            onClick = { shareInvite(context, null, inviteText) }
+                        )
+                        QuickOption(
+                            icon = Icons.Default.Groups,
+                            label = "Crear\ngrupo",
+                            tint = AccentBlue,
+                            onClick = onCreateGroup
+                        )
+                        QuickOption(
+                            icon = Icons.Default.SmartToy,
+                            label = "Chatea con\nIA",
+                            tint = Accent,
+                            onClick = onChatWithAi
+                        )
+                        QuickOption(
+                            icon = Icons.Default.MarkUnreadMailAlt,
+                            label = "Solicitudes",
+                            tint = AccentBlue,
+                            onClick = {
+                                Toast.makeText(
+                                    context,
+                                    "No tienes solicitudes pendientes ✨",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    }
 
                     RowItem.FriendsTitle -> SectionTitle("Tus amigos en Flippy")
 
@@ -489,89 +482,37 @@ fun ContactsScreen(
                         onHablar = { onSelectContact(item.contact) }
                     )
 
-                    RowItem.DiscoverTitle -> SectionTitle("Personas que podrías conocer")
+                    RowItem.Divider -> HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.10f)
+                    )
 
-                    // ── Tarjeta opcional: guarda tu número ──
-                    RowItem.PhoneCard -> Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White.copy(alpha = 0.08f))
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    RowItem.SuggestTitle -> SectionTitle("Personas que podrías conocer")
+
+                    // ── Cards: tienen Flippy y faltan agregar a tu lista ──
+                    is RowItem.SuggestCarousel -> LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(end = 6.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PhoneIphone,
-                                contentDescription = null,
-                                tint = Accent
-                            )
-                            Text(
-                                text = "Añade tu número para que tus amigos " +
-                                    "también te encuentren por teléfono en Flippy.",
-                                fontSize = 13.sp,
-                                lineHeight = 17.sp,
-                                color = TextPrimary
-                            )
-                        }
-                        OutlinedTextField(
-                            value = phoneInput,
-                            onValueChange = { phoneInput = it },
-                            placeholder = { Text("Ej: +51 999 123 456") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                            shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedContainerColor = Color.White.copy(alpha = 0.11f),
-                                unfocusedContainerColor = Color.White.copy(alpha = 0.07f),
-                                cursorColor = Accent,
-                                focusedBorderColor = Accent.copy(alpha = 0.9f),
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
-                                focusedPlaceholderColor = TextTertiary,
-                                unfocusedPlaceholderColor = TextTertiary
-                            )
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            TextButton(
-                                onClick = { phoneDismissed = true },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Ahora no", color = TextSecondary, fontSize = 13.sp)
-                            }
-                            Button(
-                                onClick = {
-                                    if (phoneInput.isNotBlank()) {
-                                        onSavePhone(phoneInput)
-                                        Toast.makeText(
-                                            context, "¡Número guardado! 📱",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
+                        items(item.people, key = { it.matched!!.flippy_id }) { dc ->
+                            SuggestionCard(
+                                contact = dc,
+                                onAdd = {
+                                    onAddContactById(dc.matched!!.flippy_id)
+                                    Toast.makeText(
+                                        context,
+                                        "¡${dc.matched!!.username} agregado! 🎉",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 },
-                                shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Accent,
-                                    contentColor = Color.Black
-                                ),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = "Guardar",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
+                                onDismiss = {
+                                    dismissedSuggestions =
+                                        dismissedSuggestions + dc.matched!!.flippy_id
+                                }
+                            )
                         }
                     }
+
+                    RowItem.InviteTitle -> SectionTitle("Invitar desde contactos")
 
                     RowItem.Permission -> Column(
                         modifier = Modifier
@@ -626,21 +567,7 @@ fun ContactsScreen(
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
 
-                    // Los que YA tienen Flippy van arriba de todos ✨
-                    is RowItem.Matched -> FlippyContactRow(
-                        contact = item.contact,
-                        alreadyAdded = item.alreadyAdded,
-                        onAdd = {
-                            onAddContactById(item.contact.matched!!.flippy_id)
-                            Toast.makeText(
-                                context,
-                                "¡${item.contact.matched!!.username} agregado! 🎉",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    )
-
-                    // Los que aún no la tienen: invítalos por SMS ✉️
+                    // Los que aún no la tienen: avatar «#» y «+ Invitar» blanco ✉️
                     is RowItem.Invite -> InviteContactRow(
                         contact = item.contact,
                         onInvite = { smsInvite(context, item.contact.phone, inviteText) }
@@ -652,7 +579,6 @@ fun ContactsScreen(
         }
 
         // ── Barra alfabética lateral (A · B · C …) ──
-        // Toca una letra o DESLIZA el dedo sobre ella para saltar.
         if (alphabet.isNotEmpty()) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -707,19 +633,20 @@ private sealed interface RowItem {
     object Search : RowItem { override val key = "search" }
     data class FlipId(val candidate: String) : RowItem { override val key = "flipid" }
     object InfoCard : RowItem { override val key = "infocard" }
-    object Share : RowItem { override val key = "share" }
-    object Divider : RowItem { override val key = "divider" }
+    object VerifyCard : RowItem { override val key = "verifycard" }
+    object QuickOptions : RowItem { override val key = "quickops" }
     object FriendsTitle : RowItem { override val key = "friends_title" }
     data class Friend(val contact: User, val active: Boolean) : RowItem {
         override val key = "friend_${contact.id}"
     }
-    object DiscoverTitle : RowItem { override val key = "discover_title" }
-    object PhoneCard : RowItem { override val key = "phone_card" }
+    object Divider : RowItem { override val key = "divider" }
+    object SuggestTitle : RowItem { override val key = "suggest_title" }
+    data class SuggestCarousel(val people: List<DeviceContactMatch>) : RowItem {
+        override val key = "suggest_row"
+    }
+    object InviteTitle : RowItem { override val key = "invite_title" }
     object Permission : RowItem { override val key = "permission" }
     data class Empty(val message: String) : RowItem { override val key = "empty" }
-    data class Matched(val contact: DeviceContactMatch, val alreadyAdded: Boolean) : RowItem {
-        override val key = "match_${contact.matched!!.flippy_id}"
-    }
     data class Invite(val contact: DeviceContactMatch) : RowItem {
         override val key = "plain_${contact.phone ?: contact.email ?: contact.name}"
     }
@@ -747,19 +674,6 @@ private fun GlassIconButton(
 }
 
 @Composable
-private fun ColorShareCircle(color: Color, content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(56.dp)
-            .clip(CircleShape)
-            .background(color),
-        contentAlignment = Alignment.Center
-    ) {
-        content()
-    }
-}
-
-@Composable
 private fun SectionTitle(text: String) {
     Text(
         text = text,
@@ -770,46 +684,130 @@ private fun SectionTitle(text: String) {
     )
 }
 
-/** Opción de compartir con icono + texto debajo (toda la zona es tocable). */
+/** Opción rápida: icono en círculo tintado + etiqueta debajo. */
 @Composable
-private fun ShareActionItem(
+private fun QuickOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit
+    tint: Color,
+    onClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(4.dp)
+            .padding(6.dp)
     ) {
-        icon()
-        Text(text = label, fontSize = 10.sp, color = TextSecondary)
+        Box(
+            modifier = Modifier
+                .size(58.dp)
+                .clip(CircleShape)
+                .background(tint.copy(alpha = 0.14f))
+                .border(1.dp, tint.copy(alpha = 0.35f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
-/** Icono de marca (WhatsApp, Telegram…) que comparte la invitación en esa app. */
+/** Card de sugerencia: foto circular, X, nombre, «De contactos» y Agregar. */
 @Composable
-private fun BrandShareItem(
-    label: String,
-    drawableRes: Int,
-    packageName: String,
-    inviteText: String
+private fun SuggestionCard(
+    contact: DeviceContactMatch,
+    onAdd: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-    ShareActionItem(label = label, onClick = {
-        shareInvite(context, packageName, inviteText)
-    }) {
-        Image(
-            painter = painterResource(id = drawableRes),
-            contentDescription = label,
-            contentScale = ContentScale.Crop,
+    val profile = contact.matched!!
+    Box {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .size(56.dp)
+                .width(128.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.White.copy(alpha = 0.08f))
+                .border(
+                    1.dp,
+                    Color.White.copy(alpha = 0.12f),
+                    RoundedCornerShape(20.dp)
+                )
+                .padding(start = 10.dp, end = 10.dp, top = 22.dp, bottom = 12.dp)
+        ) {
+            ContactAvatar(
+                photoUrl = SupabaseRepository.avatarPublicUrl(profile.flippy_id),
+                name = profile.username,
+                sizeDp = 58
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = profile.username,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "De contactos",
+                fontSize = 10.sp,
+                color = Accent,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onAdd,
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Accent,
+                    contentColor = Color.Black
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.height(30.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PersonAdd,
+                    contentDescription = null,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(text = "Agregar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        // X para quitar la sugerencia
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(6.dp)
+                .size(20.dp)
                 .clip(CircleShape)
-        )
+                .background(Color.White.copy(alpha = 0.14f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Quitar sugerencia",
+                tint = TextSecondary,
+                modifier = Modifier.size(11.dp)
+            )
+        }
     }
 }
 
@@ -874,85 +872,6 @@ private fun FriendRow(
     }
 }
 
-/** Contacto del teléfono que YA tiene Flippy: foto, nombre de perfil y «Agregar». */
-@Composable
-private fun FlippyContactRow(
-    contact: DeviceContactMatch,
-    alreadyAdded: Boolean,
-    onAdd: () -> Unit
-) {
-    val profile = contact.matched!!
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = 0.06f))
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        ContactAvatar(
-            photoUrl = SupabaseRepository.avatarPublicUrl(profile.flippy_id),
-            name = profile.username,
-            sizeDp = 46
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = profile.username,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "De tus contactos",
-                fontSize = 12.sp,
-                color = Accent,
-                maxLines = 1
-            )
-        }
-        if (alreadyAdded) {
-            Button(
-                onClick = { },
-                enabled = false,
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    disabledContainerColor = Color.White.copy(alpha = 0.12f),
-                    disabledContentColor = TextSecondary
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(15.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Agregado", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        } else {
-            Button(
-                onClick = onAdd,
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Accent,
-                    contentColor = Color.Black
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PersonAdd,
-                    contentDescription = null,
-                    modifier = Modifier.size(15.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Agregar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 /** Contacto sin Flippy: avatar «#», nombre, número y botón blanco «+ Invitar». */
 @Composable
 private fun InviteContactRow(
@@ -968,7 +887,6 @@ private fun InviteContactRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Avatar «#»: contacto de la agenda que aún no usa Flippy
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -1094,7 +1012,6 @@ private fun shareInvite(context: Context, packageName: String?, text: String) {
             if (packageName == null) Intent.createChooser(send, "Compartir Flippy") else send
         )
     } catch (e: ActivityNotFoundException) {
-        // Esa app no está instalada → chooser genérico
         val generic = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)

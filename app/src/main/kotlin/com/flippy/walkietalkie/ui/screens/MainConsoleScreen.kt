@@ -205,11 +205,11 @@ fun MainConsoleScreen(
                         modifier = Modifier.size(22.dp)
                     )
                 }
-                // Añadir contactos: escáner QR directo
-                IconButton(onClick = onOpenScanner, modifier = Modifier.size(38.dp)) {
+                // Contactos: abre la pantalla de contactos (arriba-derecha)
+                IconButton(onClick = onAddFriends, modifier = Modifier.size(38.dp)) {
                     Icon(
                         imageVector = Icons.Default.PersonAdd,
-                        contentDescription = "Añadir contactos",
+                        contentDescription = "Contactos",
                         tint = TextSecondary,
                         modifier = Modifier.size(22.dp)
                     )
