@@ -1,6 +1,7 @@
 package com.flippy.walkietalkie.ui.screens
 
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -52,10 +54,32 @@ fun MainConsoleScreen(
 ) {
     var showAddFriendsDialog by remember { mutableStateOf(false) }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(Background)
+    ) {
+        // 💫 Difuminados de fondo estilo iPhone (menta arriba, azul abajo)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Accent.copy(alpha = 0.16f), Color.Transparent),
+                    center = Offset(size.width * 0.88f, size.height * 0.05f),
+                    radius = size.width * 0.72f
+                )
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(AccentBlue.copy(alpha = 0.12f), Color.Transparent),
+                    center = Offset(size.width * 0.06f, size.height * 0.88f),
+                    radius = size.width * 0.78f
+                )
+            )
+        }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -193,36 +217,63 @@ fun MainConsoleScreen(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // ── 💬+ Nuevo chat ──
-        Row(
+        // ── 💬+ Nuevo chat · tarjeta grande estilo iPhone ──
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
-                .background(Color.White.copy(alpha = 0.08f))
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color.White.copy(alpha = 0.09f))
+                .border(
+                    1.dp,
+                    Color.White.copy(alpha = 0.16f),
+                    RoundedCornerShape(32.dp)
+                )
                 .clickable(onClick = onAddFriends)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(vertical = 28.dp, horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Globo de mensaje con un + en círculo
-            Box(contentAlignment = Alignment.BottomEnd) {
+            // Icono GRANDE centrado con halo difuminado
+            Box(contentAlignment = Alignment.Center) {
+                // Halo menta difuminado detrás del círculo
                 Box(
                     modifier = Modifier
-                        .size(50.dp)
+                        .size(126.dp)
                         .clip(CircleShape)
-                        .background(SurfaceElevated),
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    Accent.copy(alpha = 0.38f),
+                                    AccentBlue.copy(alpha = 0.14f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                // Círculo de vidrio
+                Box(
+                    modifier = Modifier
+                        .size(92.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.13f))
+                        .border(
+                            1.dp,
+                            Color.White.copy(alpha = 0.24f),
+                            CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.ChatBubble,
                         contentDescription = null,
-                        tint = Accent,
-                        modifier = Modifier.size(24.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(42.dp)
                     )
                 }
+                // Insignia «+» en círculo, abajo a la derecha
                 Box(
                     modifier = Modifier
-                        .size(20.dp)
+                        .offset(x = 34.dp, y = 34.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
                         .border(2.dp, Background, CircleShape)
                         .background(Accent),
@@ -232,32 +283,34 @@ fun MainConsoleScreen(
                         imageVector = Icons.Default.Add,
                         contentDescription = null,
                         tint = Color.Black,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(17.dp)
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = "Nuevo chat",
-                fontSize = 17.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = TextTertiary
+                color = Color.White
             )
         }
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // ── Caja: invita a tus amigos o crea un nuevo grupo ──
+        // ── Caja de vidrio: invita a tus amigos o crea un nuevo grupo ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
-                .background(Color.White.copy(alpha = 0.08f))
+                .clip(RoundedCornerShape(26.dp))
+                .background(Color.White.copy(alpha = 0.09f))
+                .border(
+                    1.dp,
+                    Color.White.copy(alpha = 0.16f),
+                    RoundedCornerShape(26.dp)
+                )
                 .clickable(onClick = onAddFriends)
                 .padding(vertical = 22.dp, horizontal = 20.dp),
             contentAlignment = Alignment.Center
@@ -301,6 +354,7 @@ fun MainConsoleScreen(
             onDismiss = { showAddFriendsDialog = false }
         )
     }
+    } // cierra el Box de fondo con difuminados
 }
 
 @Composable
