@@ -104,8 +104,6 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
     val navController = rememberNavController()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sessionStatus by authViewModel.sessionStatus.collectAsStateWithLifecycle()
-    val micLevel by viewModel.micLevel.collectAsStateWithLifecycle()
-    val waveformSamples by viewModel.waveformSamples.collectAsStateWithLifecycle()
     val currentPlayingId by viewModel.currentPlayingId.collectAsStateWithLifecycle()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -224,11 +222,8 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
             composable(Screen.Ptt.route) {
                 MainConsoleScreen(
                     uiState = uiState,
-                    micLevel = micLevel,
-                    waveformSamples = waveformSamples,
                     onStartPtt = { viewModel.startPtt() },
                     onStopPtt = { viewModel.stopPtt() },
-                    onSelectFilter = { viewModel.selectFilter(it) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
                     onAddFriends = {
                         navController.navigate(Screen.Contacts.route) {
@@ -244,12 +239,6 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                             navController.navigate(RouteProfileSetup)
                         } else {
                             navController.navigate(Screen.QrProfile.route)
-                        }
-                    },
-                    onLogout = {
-                        authViewModel.signOut()
-                        navController.navigate(RouteWelcome) {
-                            popUpTo(0) { inclusive = true }
                         }
                     }
                 )

@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,15 +19,16 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.ui.theme.*
 
+/**
+ * Botón PTT: micrófono en contenedor circular, SIN texto.
+ * Al mantenerlo presionado se enciende rojo con anillo de pulso.
+ */
 @Composable
 fun PttButton(
     isRecording: Boolean,
-    recordDurationSec: Float,
     onPressStart: () -> Unit,
     onPressEnd: () -> Unit,
     modifier: Modifier = Modifier
@@ -70,7 +70,7 @@ fun PttButton(
             )
         }
 
-        // Cuerpo del botón: plano y suave (estilo minimalista)
+        // Cuerpo del botón: círculo plano con el puro micrófono
         Box(
             modifier = Modifier
                 .size(168.dp)
@@ -94,37 +94,12 @@ fun PttButton(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Mantén para hablar",
-                    tint = if (isRecording) TextPrimary else Accent,
-                    modifier = Modifier.size(44.dp)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = if (isRecording) "Suelta para enviar" else "Mantén para hablar",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = if (isRecording) TextPrimary else TextPrimary
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = if (isRecording)
-                        String.format("%.1fs · máx 30s", recordDurationSec)
-                    else
-                        "Push-to-talk",
-                    fontSize = 11.sp,
-                    color = if (isRecording) TextPrimary.copy(alpha = 0.75f) else TextTertiary
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Mantén para hablar",
+                tint = if (isRecording) TextPrimary else Accent,
+                modifier = Modifier.size(52.dp)
+            )
         }
     }
 }

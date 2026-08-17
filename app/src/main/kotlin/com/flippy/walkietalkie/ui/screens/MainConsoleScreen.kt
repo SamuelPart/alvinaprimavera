@@ -6,10 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -27,26 +25,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.R
-import com.flippy.walkietalkie.audio.SoundEffects
 import com.flippy.walkietalkie.ui.components.*
 import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.FlippyUiState
 import kotlinx.coroutines.delay
 
+// ============================================================
+//  Pantalla principal — simple y limpia:
+//  💬+ Nuevo chat
+//  📦 Invita a tus amigos o crea un nuevo grupo
+//  🎙️ Micrófono circular (sin texto)
+// ============================================================
+
 @Composable
 fun MainConsoleScreen(
     uiState: FlippyUiState,
-    micLevel: Float,
-    waveformSamples: FloatArray,
     onStartPtt: () -> Unit,
     onStopPtt: () -> Unit,
-    onSelectFilter: (com.flippy.walkietalkie.data.model.VoiceFilter) -> Unit,
     onOpenScanner: () -> Unit,
     onAddFriends: () -> Unit = {},
     onToggleAutoPlay: () -> Unit = {},
     onOpenPlaybackModes: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
-    onLogout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddFriendsDialog by remember { mutableStateOf(false) }
@@ -55,10 +55,8 @@ fun MainConsoleScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Background)
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // ── Cabecera: avatar conectado + modo de reproducción ──
         Row(
@@ -192,110 +190,104 @@ fun MainConsoleScreen(
             }
         }
 
-        // ── Tarjeta de estado del canal ────────────────────────
-        Column(
+        Spacer(modifier = Modifier.height(26.dp))
+
+        // ── 💬+ Nuevo chat ──
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(Surface)
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color.White.copy(alpha = 0.08f))
+                .clickable(onClick = onAddFriends)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Estado + temporizador
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StatusPill(uiState)
-
-                Text(
-                    text = if (uiState.isRecording)
-                        String.format("0:%02d / 0:30", uiState.recordDurationSec.toInt())
-                    else
-                        "0:00",
-                    style = Typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (uiState.isRecording) RecordRed else TextTertiary
-                )
+            // Globo de mensaje con un + en círculo
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceElevated),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ChatBubble,
+                        contentDescription = null,
+                        tint = Accent,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .border(2.dp, Background, CircleShape)
+                        .background(Accent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
             }
-
-            // Canal o contacto activo
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = if (uiState.isChannelMode)
-                        uiState.activeChannel.name
-                    else
-                        uiState.activeContact?.username ?: "Directo",
-                    style = Typography.headlineMedium
-                )
-                Text(
-                    text = if (uiState.isChannelMode)
-                        "${uiState.activeChannel.frequency} · ${uiState.activeChannel.membersCount} en línea"
-                    else
-                        "Llamada directa · ${uiState.activeContact?.id ?: ""}",
-                    style = Typography.bodyMedium
-                )
-            }
-
-            // Forma de onda en vivo
-            OscilloscopeCanvas(
-                waveform = waveformSamples,
-                isLive = uiState.isRecording || uiState.isIncoming,
-                isSpeaking = uiState.isRecording
+            Text(
+                text = "Nuevo chat",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                modifier = Modifier.weight(1f)
             )
-
-            VuMeter(
-                level = if (uiState.isRecording) micLevel else if (uiState.isIncoming) 55f else 0f
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = TextTertiary
             )
         }
 
-        // ── Filtros de voz ─────────────────────────────────────
-        VoiceFilterSelector(
-            selectedFilter = uiState.selectedFilter,
-            onSelectFilter = onSelectFilter
-        )
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // ── Botón PTT ──────────────────────────────────────────
+        // ── Caja: invita a tus amigos o crea un nuevo grupo ──
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color.White.copy(alpha = 0.08f))
+                .clickable(onClick = onAddFriends)
+                .padding(vertical = 22.dp, horizontal = 20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Invita a tus amigos o crea un nuevo grupo",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        // Espacio flexible: el micrófono queda en la zona inferior
+        Spacer(modifier = Modifier.weight(1f))
+
+        // ── Estado puntual: solo aparece al transmitir o recibir ──
+        if (uiState.isRecording || uiState.isIncoming) {
+            StatusPill(uiState)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // ── 🎙️ Micrófono circular (sin texto) ──
         PttButton(
             isRecording = uiState.isRecording,
-            recordDurationSec = uiState.recordDurationSec,
             onPressStart = onStartPtt,
             onPressEnd = onStopPtt
         )
 
-        // ── Respuestas rápidas ─────────────────────────────────
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = "Respuestas rápidas",
-                style = Typography.labelMedium
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf("10-4 👍", "🚨 SOS", "📻 Libre", "Cambio").forEach { preset ->
-                    OutlinedButton(
-                        onClick = { SoundEffects.playRogerBeep() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp),
-                        shape = RoundedCornerShape(19.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Outline)
-                    ) {
-                        Text(text = preset, fontSize = 12.sp, maxLines = 1)
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(26.dp))
     }
 
     // ── Ventana emergente: agregar amigos ──
