@@ -1,12 +1,9 @@
 package com.flippy.walkietalkie
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -18,7 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -51,13 +47,10 @@ class MainActivity : ComponentActivity() {
     private val viewModel: FlippyViewModel by viewModels()
     private val authViewModel: AuthViewModel by viewModels()
 
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestRequiredPermissions()
+        // La cámara YA NO se pide aquí: solo cuando se va a usar
+        // (escáner QR o foto de perfil) — mejor para Play Store ✅
         handleIncomingDeepLink(intent)
 
         setContent {
@@ -85,18 +78,6 @@ class MainActivity : ComponentActivity() {
 
         if (!contactId.isNullOrEmpty() && contactId.startsWith("FLIP-", ignoreCase = true)) {
             viewModel.addContactById(contactId.uppercase())
-        }
-    }
-
-    private fun requestRequiredPermissions() {
-        // Micrófono y notificaciones ahora se piden en el onboarding (1 de 3 y 2 de 3)
-        // con su explicación. Aquí solo queda la cámara, que el escáner QR usa directo.
-        val needed = listOf(Manifest.permission.CAMERA).filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-
-        if (needed.isNotEmpty()) {
-            permissionLauncher.launch(needed.toTypedArray())
         }
     }
 }
