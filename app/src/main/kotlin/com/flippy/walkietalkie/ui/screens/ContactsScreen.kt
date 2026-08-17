@@ -461,7 +461,7 @@ fun ContactsScreen(
                             onClick = onChatWithAi
                         )
                         QuickOption(
-                            icon = Icons.Default.MarkUnreadMailAlt,
+                            icon = Icons.Default.MailOutline,
                             label = "Solicitudes",
                             tint = AccentBlue,
                             onClick = {
