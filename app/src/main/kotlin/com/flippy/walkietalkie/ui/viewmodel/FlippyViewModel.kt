@@ -84,6 +84,22 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     private val _isConnected = MutableStateFlow(false)
     val isConnected = _isConnected.asStateFlow()
 
+    // true = tu cuenta abrió sesión en OTRO dispositivo (esta debe cerrarse)
+    private val _sessionKicked = MutableStateFlow(false)
+    val sessionKicked = _sessionKicked.asStateFlow()
+
+    fun ackSessionKick() {
+        _sessionKicked.value = false
+    }
+
+    /** ID único de ESTA instalación (sirve para la regla «un dispositivo»). */
+    private val deviceInstanceId: String = prefs.getString("device_instance", null)
+        ?: ("dev-" + java.util.UUID.randomUUID().toString()).also {
+            prefs.edit().putString("device_instance", it).apply()
+        }
+
+    private var profileWatchStarted = false
+
     private val _uiState = MutableStateFlow(
         FlippyUiState(
             userProfile = loadOrCreateLocalProfile(),
@@ -203,13 +219,17 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun registerProfileInSupabase() {
         val email = SupabaseRepository.currentUserEmail()?.lowercase()
+        if (email == null) {
+            // Sin sesión (antes del login) NO creamos perfil: así evitamos
+            // cuentas duplicadas al reinstalar. Se reintenta tras autenticarse.
+            return
+        }
         try {
             // ¿Este correo ya tenía una cuenta Flippy? (reinstalaste la app
             // o entraste desde OTRO teléfono con el mismo correo)
             // → RESTAURAMOS tu ID, nombre, avatar, número y foto.
-            //    Si la búsqueda falla (p. ej. falta la columna), seguimos normal.
             val existing = try {
-                email?.let { SupabaseRepository.fetchProfileByEmail(it) }
+                SupabaseRepository.fetchProfileByEmail(email)
             } catch (e: Exception) {
                 null
             }
@@ -221,11 +241,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             }
             val myId = _uiState.value.userProfile.id
             // Mantén tu perfil de la nube siempre al día: correo, nombre y número
-            email?.let {
-                try {
-                    SupabaseRepository.updateAccountEmail(myId, it)
-                } catch (_: Exception) {
-                }
+            try {
+                SupabaseRepository.updateAccountEmail(myId, email)
+            } catch (_: Exception) {
             }
             try {
                 SupabaseRepository.updateProfileName(
@@ -239,9 +257,42 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 } catch (_: Exception) {
                 }
             }
+            // 🔒 Un solo dispositivo por correo: ESTE toma la sesión
+            try {
+                SupabaseRepository.updateActiveDevice(myId, deviceInstanceId)
+            } catch (_: Exception) {
+            }
+            startProfileKickWatcher(myId)
             Log.i(TAG, "Perfil sincronizado con Supabase: $myId")
         } catch (e: Exception) {
             Log.e(TAG, "Error registrando perfil en Supabase (¿ejecutaste schema.sql?)", e)
+        }
+    }
+
+    /** Se llama justo después de autenticarse (login / splash con sesión). */
+    fun registerOrRestoreProfile() {
+        if (!useSupabase) return
+        viewModelScope.launch { registerProfileInSupabase() }
+    }
+
+    /** Vigila tu perfil: si OTRO dispositivo toma tu cuenta, aquí saltamos. */
+    private fun startProfileKickWatcher(myId: String) {
+        if (profileWatchStarted) return
+        profileWatchStarted = true
+        viewModelScope.launch {
+            try {
+                SupabaseRepository.observeProfileChanges().collect { updated ->
+                    if (updated.flippy_id.equals(myId, ignoreCase = true)) {
+                        val active = updated.active_device
+                        if (!active.isNullOrBlank() && active != deviceInstanceId) {
+                            Log.w(TAG, "Tu cuenta inició sesión en otro dispositivo 📲")
+                            _sessionKicked.value = true
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Vigilancia de sesión detenida", e)
+            }
         }
     }
 

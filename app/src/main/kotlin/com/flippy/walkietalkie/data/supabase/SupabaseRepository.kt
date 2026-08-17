@@ -40,6 +40,8 @@ data class ProfileDto(
     val avatar: String = "📻",
     val account_email: String? = null,
     val phone: String? = null,
+    // Un solo dispositivo activo por cuenta: guarda la instancia actual
+    val active_device: String? = null,
     val created_at: String? = null
 )
 
@@ -164,6 +166,11 @@ object SupabaseRepository {
         supabase.realtime.channel("realtime:ptt_events")
     }
 
+    // Vigila cambios en perfiles (para la regla «un solo dispositivo»)
+    private val profilesChannel by lazy {
+        supabase.realtime.channel("realtime:profiles_watch")
+    }
+
     fun isConfigured(): Boolean =
         BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
 
@@ -200,6 +207,7 @@ object SupabaseRepository {
             supabase.realtime.connect()
             messagesChannel.subscribe()
             pttChannel.subscribe()
+            profilesChannel.subscribe()
             true
         } catch (e: Exception) {
             Log.e("Flippy", "No se pudo conectar Realtime de Supabase", e)
@@ -259,6 +267,13 @@ object SupabaseRepository {
     suspend fun updateProfileName(flippyId: String, username: String) {
         supabase.postgrest.from("profiles").update(
             { set("username", username) }
+        ) { filter { eq("flippy_id", flippyId) } }
+    }
+
+    /** Registra QUÉ dispositivo tiene la sesión activa de esta cuenta. */
+    suspend fun updateActiveDevice(flippyId: String, deviceId: String) {
+        supabase.postgrest.from("profiles").update(
+            { set("active_device", deviceId) }
         ) { filter { eq("flippy_id", flippyId) } }
     }
 
@@ -382,5 +397,14 @@ object SupabaseRepository {
             .filterIsInstance<PostgresAction.Insert>()
             .map { action ->
                 json.decodeFromString<PttEventDto>(action.record.toString())
+            }
+
+    /** Emite cada UPDATE de cualquier perfil (el ViewModel filtra por el tuyo). */
+    fun observeProfileChanges(): Flow<ProfileDto> =
+        profilesChannel
+            .postgresChangeFlow<PostgresAction.Update>(schema = "public") { table = "profiles" }
+            .filterIsInstance<PostgresAction.Update>()
+            .map { action ->
+                json.decodeFromString<ProfileDto>(action.record.toString())
             }
 }

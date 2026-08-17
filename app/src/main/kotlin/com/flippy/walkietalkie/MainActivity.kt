@@ -14,7 +14,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -105,6 +107,7 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sessionStatus by authViewModel.sessionStatus.collectAsStateWithLifecycle()
     val currentPlayingId by viewModel.currentPlayingId.collectAsStateWithLifecycle()
+    val sessionKicked by viewModel.sessionKicked.collectAsStateWithLifecycle()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -119,8 +122,10 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
 
     val showBottomBar = currentRoute in bottomNavItems.map { it.route }
 
-    // Tras autenticarse: onboarding (solo la primera vez) o directo a la app
+    // Tras autenticarse: restaura/crea tu perfil en la nube (aquí ya hay
+    // sesión con correo) y luego onboarding (1ra vez) o directo a la app
     fun navigateAfterAuth() {
+        viewModel.registerOrRestoreProfile()
         val prefs = navController.context.getSharedPreferences("flippy_prefs", Context.MODE_PRIVATE)
         val destination =
             if (prefs.getBoolean("onboarding_done", false)) Screen.Ptt.route else RouteOnboarding
@@ -166,6 +171,7 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
             }
         }
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = RouteSplash,
@@ -328,6 +334,44 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onCancel = { navController.popBackStack() }
                 )
             }
+        }
+
+        // 🔒 Un solo dispositivo por cuenta: si tu correo abre sesión en
+        // otro teléfono, este recibe el aviso y se cierra obligatoriamente
+        if (sessionKicked) {
+            AlertDialog(
+                onDismissRequest = { /* obligatorio: solo con Aceptar */ },
+                title = {
+                    Text(
+                        text = "Sesión iniciada en otro dispositivo 📲",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(
+                        "Se inició sesión con tu cuenta en otro dispositivo. " +
+                            "Esta sesión se cerrará."
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.ackSessionKick()
+                            authViewModel.signOut()
+                            navController.navigate(RouteWelcome) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Accent,
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Text("Aceptar", fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
         }
     }
 }

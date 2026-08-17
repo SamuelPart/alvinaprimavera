@@ -16,12 +16,15 @@ create table if not exists public.profiles (
     -- Para que tus amigos te encuentren desde sus contactos del teléfono
     account_email text,
     phone       text,
+    -- Un solo dispositivo activo por cuenta (último login gana)
+    active_device text,
     created_at  timestamptz not null default now()
 );
 
 -- Si tu tabla profiles YA existía, ejecuta solo esto:
 -- alter table public.profiles add column if not exists account_email text;
 -- alter table public.profiles add column if not exists phone text;
+-- alter table public.profiles add column if not exists active_device text;
 
 create table if not exists public.channels (
     id          text primary key,
@@ -154,5 +157,14 @@ begin
           and tablename = 'ptt_events'
     ) then
         alter publication supabase_realtime add table public.ptt_events;
+    end if;
+
+    if not exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = 'profiles'
+    ) then
+        alter publication supabase_realtime add table public.profiles;
     end if;
 end $$;
