@@ -255,6 +255,13 @@ object SupabaseRepository {
         ) { filter { eq("flippy_id", flippyId) } }
     }
 
+    /** Mantiene tu nombre en la nube (para restaurarlo si reinstalas). */
+    suspend fun updateProfileName(flippyId: String, username: String) {
+        supabase.postgrest.from("profiles").update(
+            { set("username", username) }
+        ) { filter { eq("flippy_id", flippyId) } }
+    }
+
     // ---------- Canales ----------
 
     suspend fun fetchChannels(): List<ChannelDto> =

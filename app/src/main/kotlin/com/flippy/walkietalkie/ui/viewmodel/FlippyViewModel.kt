@@ -204,10 +204,15 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun registerProfileInSupabase() {
         val email = SupabaseRepository.currentUserEmail()?.lowercase()
         try {
-            // ¿Este correo ya tenía una cuenta Flippy? (p. ej. reinstalaste
-            // la app) → RESTAURAMOS tu ID, nombre, avatar, número y foto;
-            // no necesitas configurar tu perfil de nuevo.
-            val existing = email?.let { SupabaseRepository.fetchProfileByEmail(it) }
+            // ¿Este correo ya tenía una cuenta Flippy? (reinstalaste la app
+            // o entraste desde OTRO teléfono con el mismo correo)
+            // → RESTAURAMOS tu ID, nombre, avatar, número y foto.
+            //    Si la búsqueda falla (p. ej. falta la columna), seguimos normal.
+            val existing = try {
+                email?.let { SupabaseRepository.fetchProfileByEmail(it) }
+            } catch (e: Exception) {
+                null
+            }
             val local = _uiState.value.userProfile
             if (existing != null && !existing.flippy_id.equals(local.id, ignoreCase = true)) {
                 restoreCloudProfile(existing)
@@ -215,14 +220,19 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 SupabaseRepository.getOrCreateProfile(local.id, local.username, local.avatar)
             }
             val myId = _uiState.value.userProfile.id
-            // Guarda el email de la cuenta para que tus amigos te encuentren por correo
+            // Mantén tu perfil de la nube siempre al día: correo, nombre y número
             email?.let {
                 try {
                     SupabaseRepository.updateAccountEmail(myId, it)
                 } catch (_: Exception) {
                 }
             }
-            // Re-sube tu número si ya lo habías guardado (detección por teléfono)
+            try {
+                SupabaseRepository.updateProfileName(
+                    myId, _uiState.value.userProfile.username
+                )
+            } catch (_: Exception) {
+            }
             prefs.getString("profile_phone", null)?.let { phone ->
                 try {
                     SupabaseRepository.updateProfilePhone(myId, phone)
@@ -808,16 +818,26 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             .putBoolean("profile_done", true)
             .apply()
 
-        // Sube la foto a Supabase Storage para que los amigos la vean
-        // (ruta por convención: flippy-audio/avatars/{FLIP-ID}.jpg)
-        if (photoPath != null && useSupabase) {
+        // Guarda TODO en la nube para que se restaure si reinstalas la app
+        // o entras desde otro teléfono con tu correo:
+        // · nombre → profiles.username
+        // · foto → bucket flippy-audio/avatars/{FLIP-ID}.jpg
+        if (useSupabase) {
             viewModelScope.launch {
                 try {
-                    val bytes = File(photoPath).readBytes()
-                    SupabaseRepository.uploadAvatar(current.id, bytes)
-                    Log.i(TAG, "Foto de perfil subida a Supabase ✅ (avatars/${current.id}.jpg)")
+                    SupabaseRepository.updateProfileName(current.id, fullName)
+                    Log.i(TAG, "Nombre guardado en Supabase ✅ ($fullName)")
                 } catch (e: Exception) {
-                    Log.e(TAG, "No se pudo subir la foto de perfil", e)
+                    Log.e(TAG, "No se pudo guardar el nombre en la nube", e)
+                }
+                if (photoPath != null) {
+                    try {
+                        val bytes = File(photoPath).readBytes()
+                        SupabaseRepository.uploadAvatar(current.id, bytes)
+                        Log.i(TAG, "Foto de perfil subida a Supabase ✅ (avatars/${current.id}.jpg)")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "No se pudo subir la foto de perfil", e)
+                    }
                 }
             }
         }
