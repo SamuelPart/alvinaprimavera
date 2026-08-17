@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -136,7 +137,7 @@ fun MainConsoleScreen(
                     ) {
                         Icon(
                             imageVector = if (uiState.autoPlayIncoming)
-                                Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                                Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                             contentDescription = null,
                             tint = if (uiState.autoPlayIncoming) Accent else TextSecondary,
                             modifier = Modifier.size(18.dp)

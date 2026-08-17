@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -401,7 +402,7 @@ private fun AuthScaffold(
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.10f))
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás", tint = Color.White)
             }
 
             Spacer(modifier = Modifier.height(8.dp))

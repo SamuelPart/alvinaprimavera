@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
@@ -80,7 +81,7 @@ fun PlaybackModeScreen(
                         .background(Color.White.copy(alpha = 0.10f))
                 ) {
                     Icon(
-                        Icons.Default.ArrowBack,
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Atrás",
                         tint = Color.White
                     )
@@ -99,7 +100,7 @@ fun PlaybackModeScreen(
             // ── Opción 1: Reproducción automática ──
             ModeOptionCard(
                 selected = uiState.autoPlayIncoming,
-                icon = Icons.Default.VolumeUp,
+                icon = Icons.AutoMirrored.Filled.VolumeUp,
                 title = "Reproducción automática",
                 subtitle = "Los mensajes de voz se reproducen automáticamente",
                 onClick = { onSelectAutoPlay(true) }
@@ -108,7 +109,7 @@ fun PlaybackModeScreen(
             // ── Opción 2: Modo silencio ──
             ModeOptionCard(
                 selected = !uiState.autoPlayIncoming,
-                icon = Icons.Default.VolumeOff,
+                icon = Icons.AutoMirrored.Filled.VolumeOff,
                 title = "Modo silencio",
                 subtitle = "Reproducción automática de mensajes de voz deshabilitada",
                 onClick = { onSelectAutoPlay(false) }

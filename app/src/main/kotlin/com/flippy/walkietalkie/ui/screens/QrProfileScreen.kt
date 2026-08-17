@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -61,7 +62,7 @@ fun QrProfileScreen(
                     .clip(CircleShape)
                     .background(Surface)
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = TextPrimary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás", tint = TextPrimary)
             }
             Text(text = "Mi código Flippy", style = Typography.titleLarge)
         }
