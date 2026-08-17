@@ -47,12 +47,14 @@ fun MainConsoleScreen(
     onStopPtt: () -> Unit,
     onOpenScanner: () -> Unit,
     onAddFriends: () -> Unit = {},
+    onCreateGroup: () -> Unit = {},
     onToggleAutoPlay: () -> Unit = {},
     onOpenPlaybackModes: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddFriendsDialog by remember { mutableStateOf(false) }
+    var showNewChatSheet by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -228,7 +230,7 @@ fun MainConsoleScreen(
                     Color.White.copy(alpha = 0.16f),
                     RoundedCornerShape(32.dp)
                 )
-                .clickable(onClick = onAddFriends)
+                .clickable { showNewChatSheet = true }
                 .padding(vertical = 28.dp, horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -352,6 +354,25 @@ fun MainConsoleScreen(
                 onAddFriends()
             },
             onDismiss = { showAddFriendsDialog = false }
+        )
+    }
+
+    // ── Hoja de opciones «Nuevo chat» (estilo iPhone) ──
+    if (showNewChatSheet) {
+        NewChatActionSheet(
+            onAddFriends = {
+                showNewChatSheet = false
+                onAddFriends()
+            },
+            onCreateGroup = {
+                showNewChatSheet = false
+                onCreateGroup()
+            },
+            onScanQr = {
+                showNewChatSheet = false
+                onOpenScanner()
+            },
+            onDismiss = { showNewChatSheet = false }
         )
     }
     } // cierra el Box de fondo con difuminados
@@ -556,5 +577,130 @@ private fun AddFriendsDialog(
                 )
             }
         }
+    }
+}
+
+// ============================================================
+//  Hoja de opciones «Nuevo chat» · action sheet estilo iPhone:
+//  tarjeta de vidrio con 3 opciones + botón Cancelar aparte.
+// ============================================================
+
+@Composable
+private fun NewChatActionSheet(
+    onAddFriends: () -> Unit,
+    onCreateGroup: () -> Unit,
+    onScanQr: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 18.dp)
+                .clickable(enabled = false) {}, // no cerrar al tocar la hoja
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // ── Tarjeta de vidrio con las 3 opciones ──
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color(0xF2171D27))
+                    .border(
+                        1.dp,
+                        Color.White.copy(alpha = 0.14f),
+                        RoundedCornerShape(28.dp)
+                    )
+            ) {
+                ActionSheetOption(
+                    icon = Icons.Default.PersonAdd,
+                    label = "Añadir amigos",
+                    tint = Accent,
+                    onClick = onAddFriends
+                )
+                HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.08f),
+                    modifier = Modifier.padding(start = 66.dp)
+                )
+                ActionSheetOption(
+                    icon = Icons.Default.Groups,
+                    label = "Crear grupo",
+                    tint = AccentBlue,
+                    onClick = onCreateGroup
+                )
+                HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.08f),
+                    modifier = Modifier.padding(start = 66.dp)
+                )
+                ActionSheetOption(
+                    icon = Icons.Default.QrCodeScanner,
+                    label = "Escanear código QR",
+                    tint = Accent,
+                    onClick = onScanQr
+                )
+            }
+
+            // ── Botón Cancelar (blanco, texto negro) ──
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Color.White)
+                    .clickable(onClick = onDismiss)
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Cancelar",
+                    color = Color.Black,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionSheetOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(tint.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(19.dp)
+            )
+        }
+        Text(
+            text = label,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
     }
 }

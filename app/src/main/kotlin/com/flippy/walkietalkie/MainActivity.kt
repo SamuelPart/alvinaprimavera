@@ -237,6 +237,13 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                             launchSingleTop = true
                         }
                     },
+                    onCreateGroup = {
+                        navController.navigate(Screen.Channels.route) {
+                            popUpTo(Screen.Ptt.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onToggleAutoPlay = { viewModel.toggleAutoPlayIncoming() },
                     onOpenPlaybackModes = { navController.navigate(RoutePlaybackMode) },
                     onAvatarClick = {
