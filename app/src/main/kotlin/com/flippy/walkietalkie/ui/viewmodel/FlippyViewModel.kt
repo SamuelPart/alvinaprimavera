@@ -271,6 +271,18 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             launch { loadContactsFromSupabase() }
             launch { refreshFriendRequestsInternal() }
             launch { loadMessageHistoryFromSupabase() }
+
+            // 🛟 Red de seguridad: cada 20s barre el historial de la nube;
+            // si el Realtime se cayó justo cuando te escribieron, el
+            // mensaje llega igual aunque unos segundos después
+            launch {
+                while (true) {
+                    delay(20_000)
+                    if (_isConnected.value) {
+                        runCatching { loadMessageHistoryFromSupabase() }
+                    }
+                }
+            }
         }
     }
 
@@ -435,6 +447,20 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     fun hasContactsPermission(): Boolean = ContextCompat.checkSelfPermission(
         getApplication(), Manifest.permission.READ_CONTACTS
     ) == PackageManager.PERMISSION_GRANTED
+
+    fun hasMicPermission(): Boolean = ContextCompat.checkSelfPermission(
+        getApplication(), Manifest.permission.RECORD_AUDIO
+    ) == PackageManager.PERMISSION_GRANTED
+
+    /** Reintenta UNA vez la acción tras 1.5s (para redes inestables). */
+    private suspend fun <T> withOneRetry(action: suspend () -> T): T =
+        try {
+            action()
+        } catch (first: Exception) {
+            Log.w(TAG, "Reintentando tras fallo: ${first.message}")
+            delay(1500)
+            action()
+        }
 
     fun refreshDeviceContacts() {
         if (!hasContactsPermission()) {
@@ -648,6 +674,22 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
     fun startPtt() {
         if (_uiState.value.isRecording) return
+        // Sin permiso de micrófono la grabación fallaba EN SILENCIO 🤫:
+        // ahora se avisa en pantalla para activarlo en Ajustes
+        if (!hasMicPermission()) {
+            _sendAlerts.tryEmit(
+                "🎙️ Flippy no tiene permiso de micrófono. Actívalo en: " +
+                    "Ajustes → Aplicaciones → Flippy → Permisos"
+            )
+            return
+        }
+        // ¿A quién le hablas? En modo directo debe haber un amigo elegido
+        if (currentTargetId().isBlank()) {
+            _sendAlerts.tryEmit(
+                "👆 Primero toca la foto de tu amigo (o elige un canal) para saber a quién enviarle"
+            )
+            return
+        }
         _uiState.update { it.copy(isRecording = true, recordDurationSec = 0f) }
 
         audioRecorder.startRecording(_uiState.value.selectedFilter)
@@ -682,6 +724,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             val audioResult = audioRecorder.stopRecording(_uiState.value.selectedFilter)
             if (audioResult == null) {
                 Log.w(TAG, "Grabación muy corta (<0.3s) o sin permiso de micrófono: no se envía nada")
+                _sendAlerts.tryEmit(
+                    "🎙️ No se grabó tu voz: mantén presionado al menos 1 segundito y habla cerca del micrófono"
+                )
                 return@launch
             }
 
@@ -693,7 +738,8 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             if (useSupabase) {
                 storagePath = try {
                     val path = "${profile.id}/$msgId.wav"
-                    SupabaseRepository.uploadAudio(path, audioResult.wavBytes)
+                    // Red inestable: 1 reintento automático antes de rendirse 💪
+                    withOneRetry { SupabaseRepository.uploadAudio(path, audioResult.wavBytes) }
                     Log.i(TAG, "Audio subido a Storage: $path (${audioResult.wavBytes.size} bytes)")
                     path
                 } catch (e: Exception) {
@@ -723,7 +769,7 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
             if (useSupabase) {
                 try {
-                    SupabaseRepository.insertMessage(newMsg.toDto())
+                    withOneRetry { SupabaseRepository.insertMessage(newMsg.toDto()) }
                     Log.i(TAG, "Mensaje insertado en voice_messages ✅ (target=$targetId)")
                 } catch (e: Exception) {
                     Log.e(TAG, "Fallo al insertar en voice_messages (¿ejecutaste schema.sql?)", e)
