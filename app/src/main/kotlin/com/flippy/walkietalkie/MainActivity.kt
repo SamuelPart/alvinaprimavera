@@ -21,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.flippy.walkietalkie.service.WalkieTalkieForegroundService
 import com.flippy.walkietalkie.ui.screens.*
 import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.AuthViewModel
@@ -67,6 +68,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // App en pantalla: el ViewModel reproduce; el servicio se calla 🤫
+        WalkieTalkieForegroundService.notifyUiForeground()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // App al fondo/pantalla apagada: el servicio toma la escucha 📡
+        WalkieTalkieForegroundService.notifyUiBackground()
     }
 
     override fun onNewIntent(intent: android.content.Intent) {

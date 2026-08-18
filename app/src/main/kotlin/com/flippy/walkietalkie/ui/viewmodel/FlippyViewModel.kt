@@ -553,7 +553,14 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             if (history.isEmpty()) return
             _uiState.update { state ->
                 val knownIds = state.messages.map { it.id }.toSet()
-                state.copy(messages = state.messages + history.filter { it.id !in knownIds })
+                val knownPaths = state.messages.mapNotNull { it.audioUrl }.toSet()
+                state.copy(
+                    messages = state.messages + history.filter {
+                        // Sin duplicados: por ID o por su ruta de audio ☁️
+                        it.id !in knownIds &&
+                            (it.audioUrl == null || it.audioUrl !in knownPaths)
+                    }
+                )
             }
             Log.i(TAG, "Historial desde Supabase: ${history.size} mensajes")
         } catch (e: Exception) {
