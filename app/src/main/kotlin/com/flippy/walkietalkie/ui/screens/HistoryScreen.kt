@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.data.model.VoiceMessage
 import com.flippy.walkietalkie.data.supabase.SupabaseRepository
 import com.flippy.walkietalkie.ui.components.PeerAvatar

@@ -1,3 +1,6 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+@file:Suppress("PropertyName")
+
 package com.flippy.walkietalkie.data.supabase
 
 import android.util.Log
@@ -226,7 +229,7 @@ object SupabaseRepository {
     private var realtimeReady = false
 
     // En Kotlin las funciones suspend se serializan con Mutex
-    private val realtimeMutex = kotlinx.coroutines.sync.Mutex()
+    private val realtimeMutex = Mutex()
 
     suspend fun connectRealtime(): Boolean = realtimeMutex.withLock {
         if (realtimeReady) return@withLock true
@@ -338,7 +341,7 @@ object SupabaseRepository {
                 put("status", contact.status ?: "accepted")
             }
             supabase.postgrest.from("contacts").insert(payload)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Ya existe o error de red: no es crítico
         }
     }
@@ -427,7 +430,7 @@ object SupabaseRepository {
                 put("target_id", event.target_id)
             }
             supabase.postgrest.from("ptt_events").insert(payload)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // No crítico: es solo el aviso de transmisión entrante
         }
     }
@@ -439,7 +442,7 @@ object SupabaseRepository {
     }
 
     suspend fun downloadAudio(path: String): ByteArray =
-        supabase.storage[AUDIO_BUCKET].downloadPublic(path) ?: byteArrayOf()
+        supabase.storage[AUDIO_BUCKET].downloadPublic(path)
 
     fun publicAudioUrl(path: String): String =
         "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/$AUDIO_BUCKET/$path"

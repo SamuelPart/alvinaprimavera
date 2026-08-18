@@ -372,8 +372,8 @@ fun MainConsoleScreen(
 
 @Composable
 private fun StatusPill(uiState: FlippyUiState) {
-    val bgColor: androidx.compose.ui.graphics.Color
-    val fgColor: androidx.compose.ui.graphics.Color
+    val bgColor: Color
+    val fgColor: Color
     val label: String
 
     when {
