@@ -1,5 +1,9 @@
 package com.flippy.walkietalkie.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,11 +14,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,9 +27,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.FlippyUiState
 
@@ -136,6 +145,11 @@ fun PlaybackModeScreen(
                 checked = uiState.quietHoursEnabled,
                 onChange = onSetQuietHours
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ── 🔋 Batería: que Flippy suene aunque cierres la app ──
+            BatteryOptimizationCard()
         }
     }
 }
@@ -264,5 +278,114 @@ private fun ToggleRow(
                 uncheckedBorderColor = Color.White.copy(alpha = 0.24f)
             )
         )
+    }
+}
+
+/** ¿Flippy ya está fuera del ahorro de batería? */
+private fun isBatteryFree(context: Context): Boolean {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+// ============================================================
+//  🔋 Tarjeta «Evitar ahorro de batería»
+//  Si aún no está libre: botón menta que abre el ajuste del
+//  sistema (100% permitido por Play Store, sin permisos raros).
+//  Si ya está: muestra «Listo ✓».
+// ============================================================
+
+@Composable
+private fun BatteryOptimizationCard() {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var batteryFree by remember { mutableStateOf(isBatteryFree(context)) }
+
+    // Al volver de los Ajustes, actualiza el estado automáticamente
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryFree = isBatteryFree(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(24.dp))
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        (if (batteryFree) Accent else AccentBlue).copy(alpha = 0.16f)
+                    )
+                    .border(
+                        1.dp,
+                        (if (batteryFree) Accent else AccentBlue).copy(alpha = 0.40f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BatteryChargingFull,
+                    contentDescription = null,
+                    tint = if (batteryFree) Accent else AccentBlue,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Evitar ahorro de batería",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                Text(
+                    text = if (batteryFree)
+                        "✓ Flippy puede sonar aunque cierres la app"
+                    else
+                        "Para que los audios suenen con la app cerrada, quita la optimización de batería",
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+
+        if (!batteryFree) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Accent)
+                    .clickable {
+                        // Busca «Flippy» en la lista y elige «Sin restricciones» 🔓
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            )
+                        }
+                    }
+            ) {
+                Text(
+                    text = "Abrir ajustes de batería ⚡",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF0B1512)
+                )
+            }
+        }
     }
 }
