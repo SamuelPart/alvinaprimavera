@@ -124,7 +124,11 @@ fun VoiceMessageDto.toVoiceMessage(): VoiceMessage = VoiceMessage(
     audioUrl = audio_url,
     duration = duration,
     filter = filter,
-    transcription = transcription,
+    // Jamás mostrar el viejo texto de relleno (mensajes antiguos en la nube)
+    transcription = transcription.takeUnless {
+        it.startsWith("Transmisión de voz recibida", ignoreCase = true) ||
+            it.startsWith("Transmision de voz recibida", ignoreCase = true)
+    } ?: "",
     // Hora REAL del mensaje (para «14:32» / «2 días atrás» en la consola)
     timestamp = created_at?.let {
         runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull()
