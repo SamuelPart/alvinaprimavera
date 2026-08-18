@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -28,7 +30,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -697,9 +698,10 @@ private fun ActionSheetOption(
 }
 
 // ============================================================
-//  🎠 CARRUSEL DE AMIGOS · el amigo seleccionado va ADELANTE,
-//  «Nuevo chat» asoma atrás a la izquierda y otro amigo
-//  atrás a la derecha. Desliza o toca los lados para cambiar.
+//  🎠 UN SOLO CAJÓN DE VIDRIO (estático): adentro solo cambia
+//  el contenido — ícono de «Nuevo chat» o la foto/iniciales
+//  de cada amigo. Desliza ← → (o toca los puntitos) para
+//  cambiar. Sin tarjetas encimadas: todo ordenado.
 // ============================================================
 
 @Composable
@@ -709,26 +711,28 @@ private fun FriendsCarousel(
     onSelectIndex: (Int) -> Unit,
     onNewChat: () -> Unit
 ) {
-    AnimatedContent(
-        targetState = frontIndex,
-        transitionSpec = {
-            fadeIn(animationSpec = tween(220)) togetherWith
-                fadeOut(animationSpec = tween(150))
-        },
-        label = "friends_carousel",
+    val shape = RoundedCornerShape(32.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
-    ) { front ->
+    ) {
+        // ── EL CAJÓN: siempre el mismo, mismo lugar, mismo estilo ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(196.dp)
-                .pointerInput(front, contacts.size) {
+                .clip(shape)
+                .background(Color.White.copy(alpha = 0.09f))
+                .border(1.dp, Color.White.copy(alpha = 0.16f), shape)
+                .pointerInput(contacts.size, frontIndex) {
                     // Deslizar: ← siguiente · → anterior
                     var drag = 0f
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (drag < -45f && front < contacts.size) onSelectIndex(front + 1)
-                            else if (drag > 45f && front > 0) onSelectIndex(front - 1)
+                            if (drag < -45f && frontIndex < contacts.size) {
+                                onSelectIndex(frontIndex + 1)
+                            } else if (drag > 45f && frontIndex > 0) {
+                                onSelectIndex(frontIndex - 1)
+                            }
                             drag = 0f
                         }
                     ) { change, amount ->
@@ -736,137 +740,78 @@ private fun FriendsCarousel(
                         drag += amount
                     }
                 }
+                .clickable(enabled = frontIndex == 0) { onNewChat() }
+                .padding(vertical = 26.dp, horizontal = 20.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // ◀ ATRÁS-IZQUIERDA: elemento anterior (p. ej. «Nuevo chat»)
-            if (front > 0) {
-                PeekCard(
-                    contacts = contacts,
-                    index = front - 1,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxWidth(0.54f),
-                    onClick = { onSelectIndex(front - 1) }
-                )
-            }
-            // ▶ ATRÁS-DERECHA: siguiente amigo
-            if (front < contacts.size) {
-                PeekCard(
-                    contacts = contacts,
-                    index = front + 1,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxWidth(0.54f),
-                    onClick = { onSelectIndex(front + 1) }
-                )
-            }
-            // ★ PRIMER PLANO: tarjeta seleccionada (se dibuja al final = encima)
-            CarouselCard(
-                front = true,
-                onClick = {
-                    if (front == 0) onNewChat() // tocar «Nuevo chat» abre la hoja
+            // Solo cambia el CONTENIDO, con un deslizamiento suave ✨
+            AnimatedContent(
+                targetState = frontIndex,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally { it / 3 } + fadeIn(tween(200))) togetherWith
+                            (slideOutHorizontally { -it / 3 } + fadeOut(tween(160)))
+                    } else {
+                        (slideInHorizontally { -it / 3 } + fadeIn(tween(200))) togetherWith
+                            (slideOutHorizontally { it / 3 } + fadeOut(tween(160)))
+                    }
                 },
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth(0.66f)
-                    .fillMaxHeight()
-            ) {
-                if (front == 0) {
-                    NewChatGlyph(big = true)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Nuevo chat",
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                } else {
-                    val user = contacts[front - 1]
-                    FriendAvatarHalo(user = user, size = 82.dp, fontSize = 26.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = user.username,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = user.id,
-                        fontSize = 11.sp,
-                        color = TextTertiary
-                    )
+                label = "friend_box",
+                modifier = Modifier.fillMaxWidth()
+            ) { front ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (front == 0) {
+                        NewChatGlyph(big = true)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Nuevo chat",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    } else {
+                        val user = contacts[front - 1]
+                        FriendAvatarHalo(user = user, size = 88.dp, fontSize = 28.sp)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = user.username,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = user.id,
+                            fontSize = 11.sp,
+                            color = TextTertiary
+                        )
+                    }
                 }
             }
         }
-    }
-}
 
-/** Tarjeta PEQUEÑA que asoma por detrás (izquierda o derecha). */
-@Composable
-private fun PeekCard(
-    contacts: List<User>,
-    index: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    CarouselCard(
-        front = false,
-        onClick = onClick,
-        modifier = modifier.fillMaxHeight(0.86f)
-    ) {
-        if (index == 0) {
-            NewChatGlyph(big = false)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Nuevo chat",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
-            )
-        } else {
-            val user = contacts.getOrNull(index - 1)
-            if (user != null) {
-                FriendAvatar(user = user, size = 56.dp, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = user.username,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // ── Puntitos: cuántas opciones hay y en cuál estás ──
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            repeat(contacts.size + 1) { i ->
+                Box(
+                    modifier = Modifier
+                        .size(if (i == frontIndex) 9.dp else 7.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (i == frontIndex) Accent
+                            else Color.White.copy(alpha = 0.28f)
+                        )
+                        .clickable { onSelectIndex(i) }
                 )
             }
         }
     }
-}
-
-/** Base visual de las tarjetas del carrusel (vidrio, redondeadas). */
-@Composable
-private fun CarouselCard(
-    front: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    val shape = RoundedCornerShape(if (front) 30.dp else 24.dp)
-    Column(
-        modifier = modifier
-            .graphicsLayer { alpha = if (front) 1f else 0.72f }
-            .clip(shape)
-            .background(Color.White.copy(alpha = if (front) 0.10f else 0.06f))
-            .border(
-                1.dp,
-                Color.White.copy(alpha = if (front) 0.18f else 0.10f),
-                shape
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        content = content
-    )
 }
 
 /** Icono «Nuevo chat»: burbuja de vidrio con halo difuminado + insignia «+». */
