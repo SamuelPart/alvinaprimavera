@@ -74,7 +74,7 @@ fun MainConsoleScreen(
     onSelectContact: (User) -> Unit = {},
     onPlayMessage: (VoiceMessage) -> Unit = {},
     onStopPlayback: () -> Unit = {},
-    onOpenHistory: () -> Unit = {},
+    onOpenFriendChat: (String) -> Unit = {},
     currentPlayingId: String? = null,
     modifier: Modifier = Modifier
 ) {
@@ -311,7 +311,7 @@ fun MainConsoleScreen(
                         isPlaying = lastMessage != null && lastMessage.id == currentPlayingId,
                         onPlay = { lastMessage?.let { onPlayMessage(it) } },
                         onStop = onStopPlayback,
-                        onOpenChat = onOpenHistory,
+                        onOpenChat = { onOpenFriendChat(friend.id) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

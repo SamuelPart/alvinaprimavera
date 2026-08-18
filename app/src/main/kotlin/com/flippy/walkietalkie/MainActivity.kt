@@ -35,6 +35,7 @@ private const val RoutePlaybackMode = "playback_mode"
 private const val RouteProfileSetup = "profile_setup"
 private const val RoutePhoneVerify = "phone_verify"
 private const val RouteFriendRequests = "friend_requests"
+private const val RouteChatFriend = "chat_friend/{contactId}"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
@@ -245,7 +246,9 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onSelectContact = { viewModel.selectDirectContact(it) },
                     onPlayMessage = { viewModel.playMessage(it) },
                     onStopPlayback = { viewModel.stopPlayback() },
-                    onOpenHistory = { navController.navigate(Screen.History.route) },
+                    onOpenFriendChat = { contactId ->
+                        navController.navigate("chat_friend/$contactId")
+                    },
                     currentPlayingId = currentPlayingId
                 )
             }
@@ -311,6 +314,30 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onReject = { viewModel.rejectFriendRequest(it) },
                     onBack = { navController.popBackStack() }
                 )
+            }
+
+            // ── Chat 1 a 1 con un amigo (burbujas de audio + micrófono) ──
+            composable(RouteChatFriend) { entry ->
+                val contactId = entry.arguments?.getString("contactId").orEmpty()
+                val friend = uiState.contacts.firstOrNull {
+                    it.id.equals(contactId, ignoreCase = true)
+                }
+                if (friend != null) {
+                    // El micrófono de este chat habla con ESTE amigo 🎙️
+                    LaunchedEffect(contactId) { viewModel.selectDirectContact(friend) }
+                    ChatContactScreen(
+                        friend = friend,
+                        myId = uiState.userProfile.id,
+                        messages = uiState.messages,
+                        isRecording = uiState.isRecording,
+                        currentPlayingId = currentPlayingId,
+                        onStartPtt = { viewModel.startPtt() },
+                        onStopPtt = { viewModel.stopPtt() },
+                        onPlay = { viewModel.playMessage(it) },
+                        onStopPlayback = { viewModel.stopPlayback() },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
 
             // ── Verificar número (país con bandera + código automático) ──
