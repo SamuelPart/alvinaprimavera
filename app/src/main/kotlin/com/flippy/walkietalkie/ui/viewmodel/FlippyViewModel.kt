@@ -132,6 +132,10 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.value.activeChannel.frequency
         )
 
+        // 🗣️ Modelo de transcripción GRATIS (Vosk): se prepara solo
+        // una vez en segundo plano, sin molestar la app
+        VoskBridge.ensureModelConfigured(application)
+
         if (useSupabase) {
             Log.i(TAG, "Backend: SUPABASE (nube) ✅")
             startSupabaseBackend()
@@ -701,8 +705,20 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 SpeechTranscriber.transcribeAsync(
                     getApplication(), pcm, AudioRecorder.SAMPLE_RATE
                 ) { texto ->
-                    if (texto.isNullOrBlank()) return@transcribeAsync
-                    applyTranscription(msgId, texto, storagePath)
+                    if (!texto.isNullOrBlank()) {
+                        applyTranscription(msgId, texto, storagePath)
+                    } else {
+                        // 🗣️ Plan B gratis Vosk: funciona en CUALQUIER
+                        // teléfono (descarga el modelo una sola vez)
+                        Log.i(TAG, "Reconocedor del sistema sin texto → usando Vosk")
+                        VoskBridge.transcribePcmAsync(
+                            getApplication(), pcm, AudioRecorder.SAMPLE_RATE
+                        ) { textoVosk ->
+                            if (!textoVosk.isNullOrBlank()) {
+                                applyTranscription(msgId, textoVosk, storagePath)
+                            }
+                        }
+                    }
                 }
             }
 

@@ -90,6 +90,11 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
 
+    // Vosk: transcripción de voz a texto OFFLINE y gratis (plan B
+    // universal cuando el reconocedor del sistema no responde).
+    // El modelo en español (~42 MB) se descarga una sola vez.
+    implementation("com.alphacephei:vosk-android:0.3.47")
+
     // CameraX for QR Scanning
     val cameraxVersion = "1.3.4"
     implementation("androidx.camera:camera-core:$cameraxVersion")
