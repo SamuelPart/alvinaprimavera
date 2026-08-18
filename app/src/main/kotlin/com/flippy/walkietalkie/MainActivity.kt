@@ -241,7 +241,12 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                         } else {
                             navController.navigate(Screen.QrProfile.route)
                         }
-                    }
+                    },
+                    onSelectContact = { viewModel.selectDirectContact(it) },
+                    onPlayMessage = { viewModel.playMessage(it) },
+                    onStopPlayback = { viewModel.stopPlayback() },
+                    onOpenHistory = { navController.navigate(Screen.History.route) },
+                    currentPlayingId = currentPlayingId
                 )
             }
 
