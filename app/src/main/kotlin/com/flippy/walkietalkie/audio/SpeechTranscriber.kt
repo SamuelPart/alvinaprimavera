@@ -108,17 +108,19 @@ object SpeechTranscriber {
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // El audio que grabó el usuario va DIRECTO al reconocedor
+                // El audio que grabó el usuario va DIRECTO al reconocedor.
+                // (Se usan los valores literales: en algunos SDK las
+                // constantes EXTRA_AUDIO_SOURCE_* aún no existen)
                 putExtra(
-                    RecognizerIntent.EXTRA_AUDIO_SOURCE,
+                    "android.speech.extra.AUDIO_SOURCE",
                     ParcelFileDescriptor.open(
                         pcmFile,
                         ParcelFileDescriptor.MODE_READ_ONLY
                     )
                 )
-                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLE_RATE, sampleRate)
-                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
-                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, 2) // PCM 16-bit
+                putExtra("android.speech.extra.AUDIO_SOURCE_SAMPLE_RATE", sampleRate)
+                putExtra("android.speech.extra.AUDIO_SOURCE_CHANNEL_COUNT", 1)
+                putExtra("android.speech.extra.AUDIO_SOURCE_ENCODING", 2) // PCM 16-bit
             }
         }
 
