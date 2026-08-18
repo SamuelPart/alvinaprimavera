@@ -14,6 +14,6 @@ data class VoiceMessage(
     val duration: Float = 2.5f,
     val filter: String = "radio",
     val timestamp: Long = System.currentTimeMillis(),
-    val transcription: String = "Transmisión de voz recibida. 10-4 cambio.",
+    val transcription: String = "",
     val translations: Map<String, String> = emptyMap()
 )

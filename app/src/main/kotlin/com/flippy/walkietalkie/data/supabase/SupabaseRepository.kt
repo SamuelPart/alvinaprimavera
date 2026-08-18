@@ -384,6 +384,19 @@ object SupabaseRepository {
         supabase.postgrest.from("voice_messages").insert(payload)
     }
 
+    /** Rellena la transcripción de un mensaje ya enviado (voz → texto ✍️).
+     *  Se busca por audio_url, que es único (FLIP-ID/msg-XXXX). */
+    suspend fun updateMessageTranscription(audioPath: String, text: String) {
+        try {
+            supabase.postgrest.from("voice_messages")
+                .update({ set("transcription", text) }) {
+                    filter { eq("audio_url", audioPath) }
+                }
+        } catch (e: Exception) {
+            Log.e("Flippy", "No se pudo guardar la transcripción", e)
+        }
+    }
+
     // ---------- Eventos PTT (señalización TX/RX) ----------
 
     suspend fun insertPttEvent(event: PttEventDto) {
@@ -444,6 +457,15 @@ object SupabaseRepository {
             .filterIsInstance<PostgresAction.Insert>()
             .map { action ->
                 json.decodeFromString<PttEventDto>(action.record.toString())
+            }
+
+    /** Emite cada UPDATE de mensajes (p. ej. cuándo llega la transcripción ✍️). */
+    fun observeMessageUpdates(): Flow<VoiceMessageDto> =
+        messagesChannel
+            .postgresChangeFlow<PostgresAction.Update>(schema = "public") { table = "voice_messages" }
+            .filterIsInstance<PostgresAction.Update>()
+            .map { action ->
+                json.decodeFromString<VoiceMessageDto>(action.record.toString())
             }
 
     /** Emite cada UPDATE de cualquier perfil (el ViewModel filtra por el tuyo). */

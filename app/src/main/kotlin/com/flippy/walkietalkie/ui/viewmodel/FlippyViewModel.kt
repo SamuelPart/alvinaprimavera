@@ -69,7 +69,11 @@ data class FlippyUiState(
 
 class FlippyViewModel(application: Application) : AndroidViewModel(application) {
 
-    private companion object { const val TAG = "Flippy" }
+    private companion object {
+        const val TAG = "Flippy"
+        // Cabecera estándar de un WAV (44 bytes) antes del PCM crudo
+        const val WAV_HEADER_SIZE = 44
+    }
 
     private val audioRecorder = AudioRecorder()
     private val audioPlayer = AudioPlayer(application)
@@ -170,6 +174,7 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             // como recomienda supabase-kt para no perder eventos
             val incomingMessages = SupabaseRepository.observeMessages()
             val incomingPtt = SupabaseRepository.observePttEvents()
+            val messageUpdates = SupabaseRepository.observeMessageUpdates()
             val contactChanges = SupabaseRepository.observeContactChanges()
 
             _isConnected.value = SupabaseRepository.connectRealtime()
@@ -206,6 +211,23 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                             _uiState.update { it.copy(isIncoming = false) }
                             SoundEffects.playIncomingAlert()
                         }
+                    }
+                }
+            }
+
+            // ✍️ Cuando el otro teléfono termina de transcribir su audio,
+            // el texto llega SOLO y se coloca dentro del mensaje recibido
+            launch {
+                messageUpdates.collect { dto ->
+                    _uiState.update { st ->
+                        st.copy(messages = st.messages.map { m ->
+                            val samePath = m.audioUrl != null &&
+                                m.audioUrl == dto.audio_url
+                            val sameId = !dto.id.isNullOrBlank() && m.id == dto.id
+                            if (samePath || sameId) {
+                                m.copy(transcription = dto.transcription)
+                            } else m
+                        })
                     }
                 }
             }
@@ -653,7 +675,7 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 audioUrl = storagePath,                // path en Storage para los demás dispositivos
                 duration = audioResult.duration,
                 filter = _uiState.value.selectedFilter.id,
-                transcription = "Transmisión de voz recibida. 10-4 cambio."
+                transcription = "" // se rellena sola con el reconocedor de voz ✍️
             )
 
             _uiState.update { it.copy(messages = listOf(newMsg) + it.messages) }
@@ -669,10 +691,40 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 webSocketClient.sendVoiceMessage(newMsg)
             }
 
+            // ✍️ Transcripción REAL de tu voz a texto (gratis, en el teléfono)
+            //    El audio ya salió al instante ⚡; el texto aparece enseguida
+            //    aquí y también en el teléfono que lo recibe.
+            runCatching {
+                val pcm = audioResult.wavBytes.copyOfRange(
+                    WAV_HEADER_SIZE, audioResult.wavBytes.size
+                )
+                SpeechTranscriber.transcribeAsync(
+                    getApplication(), pcm, AudioRecorder.SAMPLE_RATE
+                ) { texto ->
+                    if (texto.isNullOrBlank()) return@transcribeAsync
+                    applyTranscription(msgId, texto, storagePath)
+                }
+            }
+
             // If target is bot or general channel, simulate bot reply after 1.5s
             if (targetId == "FLIP-BOT" || targetId == "ch-general") {
                 delay(1400)
                 simulateBotReply(targetType, targetId)
+            }
+        }
+    }
+
+    /** Coloca la transcripción real en el mensaje (local y en la nube ✍️). */
+    private fun applyTranscription(msgId: String, text: String, storagePath: String?) {
+        _uiState.update { st ->
+            st.copy(messages = st.messages.map {
+                if (it.id == msgId) it.copy(transcription = text) else it
+            })
+        }
+        // También al teléfono del otro: actualizamos la fila en la nube
+        if (useSupabase && storagePath != null) {
+            viewModelScope.launch {
+                SupabaseRepository.updateMessageTranscription(storagePath, text)
             }
         }
     }

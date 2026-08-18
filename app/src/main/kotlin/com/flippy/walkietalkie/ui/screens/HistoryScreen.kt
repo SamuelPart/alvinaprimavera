@@ -165,9 +165,10 @@ fun HistoryScreen(
                             }
                         }
 
-                        // Transcripción sutil
+                        // Transcripción real (o etiqueta simple si no hay)
                         Text(
-                            text = "\"${msg.transcription}\"",
+                            text = if (msg.transcription.isBlank()) "🎙️ Audio de voz"
+                            else "\"${msg.transcription}\"",
                             style = Typography.bodySmall,
                             fontStyle = FontStyle.Italic
                         )
