@@ -74,6 +74,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // App en pantalla: el ViewModel reproduce; el servicio se calla 🤫
         WalkieTalkieForegroundService.notifyUiForeground()
+        // Y refresca lo que llegó mientras la pantalla estaba apagada ☁️
+        viewModel.refreshCloudData()
     }
 
     override fun onPause() {
@@ -110,6 +112,15 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
     val sessionKicked by viewModel.sessionKicked.collectAsStateWithLifecycle()
     val friendRequests by viewModel.friendRequests.collectAsStateWithLifecycle()
     val appContext = LocalContext.current
+
+    // ⚠️ Si algo falla al enviar/recibir, se ve EN PANTALLA (nada oculto)
+    LaunchedEffect(Unit) {
+        viewModel.sendAlerts.collect { msg ->
+            android.widget.Toast.makeText(
+                appContext, msg, android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route

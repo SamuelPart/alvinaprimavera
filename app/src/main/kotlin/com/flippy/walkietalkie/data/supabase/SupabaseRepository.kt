@@ -218,13 +218,22 @@ object SupabaseRepository {
 
     // ---------- Conexión Realtime ----------
 
+    // Una vez conectado y suscrito, nadie más debe volver a suscribirse
+    // (el servicio y la app comparten los mismos canales).
+    @Volatile
+    private var realtimeReady = false
+
+    @Synchronized
     suspend fun connectRealtime(): Boolean {
+        if (realtimeReady) return true
         return try {
             supabase.realtime.connect()
-            messagesChannel.subscribe()
-            pttChannel.subscribe()
-            profilesChannel.subscribe()
-            contactsChannel.subscribe()
+            // Suscripción tolerante: si un canal ya estaba suscrito
+            // (por el servicio o la app), NO es un error, seguimos ✅
+            listOf(messagesChannel, pttChannel, profilesChannel, contactsChannel).forEach { ch ->
+                runCatching { ch.subscribe() }
+            }
+            realtimeReady = true
             true
         } catch (e: Exception) {
             Log.e("Flippy", "No se pudo conectar Realtime de Supabase", e)

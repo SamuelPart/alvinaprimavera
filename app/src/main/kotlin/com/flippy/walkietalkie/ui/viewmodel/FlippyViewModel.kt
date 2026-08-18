@@ -184,6 +184,20 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             _isConnected.value = SupabaseRepository.connectRealtime()
             Log.i(TAG, "Realtime conectado = ${_isConnected.value}")
 
+            // 🔄 Si la nube no responde, REINTENTA cada 15s hasta lograrlo
+            //    (sin esto, un fallo inicial dejaba de llegar todo 🤫)
+            launch {
+                while (!_isConnected.value) {
+                    delay(15_000)
+                    _isConnected.value = SupabaseRepository.connectRealtime()
+                    if (_isConnected.value) {
+                        Log.i(TAG, "Realtime reconectado tras reintento ✅")
+                        loadMessageHistoryFromSupabase()
+                        refreshFriendRequestsInternal()
+                    }
+                }
+            }
+
             // Transmisiones entrantes de otros operadores en tiempo real
             launch {
                 incomingMessages.collect { dto ->
@@ -404,6 +418,19 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _friendRequests = MutableStateFlow<List<FriendRequest>>(emptyList())
     val friendRequests = _friendRequests.asStateFlow()
+
+    /** Avisos que MainActivity muestra en pantalla (p. ej. errores al enviar). */
+    private val _sendAlerts = MutableSharedFlow<String>(extraBufferCapacity = 6)
+    val sendAlerts = _sendAlerts.asSharedFlow()
+
+    /** Al volver a la app (pantalla encendida): trae lo último de la nube. */
+    fun refreshCloudData() {
+        if (!useSupabase) return
+        viewModelScope.launch {
+            runCatching { loadMessageHistoryFromSupabase() }
+            runCatching { refreshFriendRequestsInternal() }
+        }
+    }
 
     fun hasContactsPermission(): Boolean = ContextCompat.checkSelfPermission(
         getApplication(), Manifest.permission.READ_CONTACTS
@@ -671,6 +698,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                     path
                 } catch (e: Exception) {
                     Log.e(TAG, "Fallo al subir audio (¿existe el bucket público 'flippy-audio'?)", e)
+                    _sendAlerts.tryEmit(
+                        "⚠️ No se subió tu audio: ${e.message ?: "revisa tu internet"}"
+                    )
                     null
                 }
             }
@@ -697,6 +727,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                     Log.i(TAG, "Mensaje insertado en voice_messages ✅ (target=$targetId)")
                 } catch (e: Exception) {
                     Log.e(TAG, "Fallo al insertar en voice_messages (¿ejecutaste schema.sql?)", e)
+                    _sendAlerts.tryEmit(
+                        "⚠️ No se envió tu mensaje: ${e.message ?: "revisa tu internet"}"
+                    )
                 }
             } else {
                 webSocketClient.sendVoiceMessage(newMsg)

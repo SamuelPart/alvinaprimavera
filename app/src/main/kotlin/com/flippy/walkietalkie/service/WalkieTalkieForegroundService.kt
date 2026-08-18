@@ -144,9 +144,16 @@ class WalkieTalkieForegroundService : Service() {
             val pttEvents = SupabaseRepository.observePttEvents()
             val messageUpdates = SupabaseRepository.observeMessageUpdates()
 
-            val connected = runCatching { SupabaseRepository.connectRealtime() }
+            // 🔄 Conecta y REINTENTA cada 15s hasta conseguirlo: si el
+            // servicio no conecta, con pantalla apagada no llega nada
+            var connected = runCatching { SupabaseRepository.connectRealtime() }
                 .getOrDefault(false)
-            Log.i(TAG, "Receptor en fondo conectado = $connected (mi ID: $myId)")
+            while (!connected) {
+                delay(15_000)
+                connected = runCatching { SupabaseRepository.connectRealtime() }
+                    .getOrDefault(false)
+            }
+            Log.i(TAG, "Receptor en fondo conectado ✅ (mi ID: $myId)")
 
             // Sonido de notificación cuando el otro SUELTA el micrófono 🔔
             launch {
