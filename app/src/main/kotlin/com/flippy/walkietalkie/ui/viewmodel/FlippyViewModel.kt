@@ -170,6 +170,7 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             // como recomienda supabase-kt para no perder eventos
             val incomingMessages = SupabaseRepository.observeMessages()
             val incomingPtt = SupabaseRepository.observePttEvents()
+            val contactChanges = SupabaseRepository.observeContactChanges()
 
             _isConnected.value = SupabaseRepository.connectRealtime()
             Log.i(TAG, "Realtime conectado = ${_isConnected.value}")
@@ -209,10 +210,26 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
 
+            // 📨 Solicitudes de amistad en vivo: cualquier cambio en la
+            // tabla «contacts» refresca solicitudes y amigos; si te llega
+            // una solicitud NUEVA suena la alerta de notificación 🔔
+            launch {
+                contactChanges.collect {
+                    val known = _friendRequests.value.map { it.fromId }.toSet()
+                    refreshFriendRequestsInternal()
+                    loadContactsFromSupabase()
+                    if (_friendRequests.value.any { it.fromId !in known }) {
+                        SoundEffects.playIncomingAlert()
+                        Log.i(TAG, "📨 ¡Nueva solicitud de amistad!")
+                    }
+                }
+            }
+
             // Carga inicial de datos persistidos en la nube
             launch { registerProfileInSupabase() }
             launch { loadChannelsFromSupabase() }
             launch { loadContactsFromSupabase() }
+            launch { refreshFriendRequestsInternal() }
             launch { loadMessageHistoryFromSupabase() }
         }
     }
@@ -263,6 +280,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             } catch (_: Exception) {
             }
             startProfileKickWatcher(myId)
+            // Con tu identidad ya restaurada, trae tus solicitudes pendientes 📨
+            refreshFriendRequestsInternal()
+            loadContactsFromSupabase()
             Log.i(TAG, "Perfil sincronizado con Supabase: $myId")
         } catch (e: Exception) {
             Log.e(TAG, "Error registrando perfil en Supabase (¿ejecutaste schema.sql?)", e)
@@ -345,8 +365,19 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         val matched: ProfileDto? // null = aún no tiene Flippy instalado/registrado
     )
 
+    /** Solicitud de amistad recibida: quién te quiere agregar. */
+    data class FriendRequest(
+        val fromId: String,
+        val fromName: String,
+        val fromAvatar: String,
+        val photoUrl: String?
+    )
+
     private val _deviceContacts = MutableStateFlow<List<DeviceContactMatch>>(emptyList())
     val deviceContacts = _deviceContacts.asStateFlow()
+
+    private val _friendRequests = MutableStateFlow<List<FriendRequest>>(emptyList())
+    val friendRequests = _friendRequests.asStateFlow()
 
     fun hasContactsPermission(): Boolean = ContextCompat.checkSelfPermission(
         getApplication(), Manifest.permission.READ_CONTACTS
@@ -464,7 +495,12 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun loadContactsFromSupabase() {
         try {
             val me = _uiState.value.userProfile.id
-            val rows = SupabaseRepository.fetchContacts().filter { it.owner_flippy_id == me }
+            // Solo aparecen en tu lista los contactos ACEPTADOS
+            // (las filas antiguas sin estado cuentan como aceptadas).
+            val rows = SupabaseRepository.fetchContacts().filter {
+                it.owner_flippy_id == me &&
+                    (it.status == null || it.status.equals("accepted", ignoreCase = true))
+            }
             if (rows.isEmpty()) return
             val profiles = SupabaseRepository.fetchProfiles()
             val users = rows.map { row ->
@@ -761,36 +797,140 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
         selectChannel(newChan)
     }
 
-    fun addContactById(id: String) {
+    // ============================================================
+    //  Solicitudes de amistad 📨
+    //  Agregar a alguien NO lo pone en tu lista al instante:
+    //  le llega una solicitud y ÉL decide aceptar o rechazar.
+    // ============================================================
+
+    /**
+     * Envía una solicitud de amistad al dueño del ID.
+     * [onToast] recibe el mensaje que debe mostrar la interfaz.
+     */
+    fun addContactById(id: String, onToast: (String) -> Unit = {}) {
         val cleanId = id.trim().uppercase()
         if (cleanId.isEmpty()) return
-        if (_uiState.value.contacts.any { it.id.equals(cleanId, ignoreCase = true) }) return
+        val me = _uiState.value.userProfile.id
 
-        viewModelScope.launch {
-            var newContact = User(
+        if (cleanId.equals(me, ignoreCase = true)) {
+            onToast("Ese es tu propio ID 😅 Compártelo con un amigo")
+            return
+        }
+        if (_uiState.value.contacts.any { it.id.equals(cleanId, ignoreCase = true) }) {
+            onToast("Ya está en tus amigos 😄")
+            return
+        }
+        // ¿Él ya te había enviado solicitud a ti? → aceptación instantánea 🎉
+        if (_friendRequests.value.any { it.fromId.equals(cleanId, ignoreCase = true) }) {
+            acceptFriendRequest(cleanId)
+            onToast("¡Ya te había enviado solicitud! Ahora son amigos 🎉")
+            return
+        }
+        if (!useSupabase) {
+            val local = User(
                 id = cleanId,
                 username = "Operador-${cleanId.takeLast(4)}",
                 avatar = "🦊",
                 status = UserStatus.ONLINE
             )
-            if (useSupabase) {
-                try {
-                    // Si el operador existe en la nube, usamos su perfil real
-                    val profile = SupabaseRepository.fetchProfile(cleanId)
-                    if (profile != null) newContact = profile.toUser()
-                    SupabaseRepository.insertContact(
-                        ContactDto(
-                            owner_flippy_id = _uiState.value.userProfile.id,
-                            contact_flippy_id = cleanId
-                        )
+            _uiState.update { it.copy(contacts = it.contacts + local) }
+            onToast("Contacto agregado ✨")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                SupabaseRepository.insertContact(
+                    ContactDto(
+                        owner_flippy_id = me,
+                        contact_flippy_id = cleanId,
+                        status = "pending"
                     )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                )
+                SoundEffects.playIncomingAlert()
+                onToast("¡Solicitud enviada! 📨 Te avisaremos cuando acepte")
+            } catch (e: Exception) {
+                Log.e(TAG, "No se pudo enviar la solicitud", e)
+                onToast("No se pudo enviar. Revisa tu conexión 🔌")
             }
-            val contact = newContact
-            _uiState.update { it.copy(contacts = it.contacts + contact) }
-            SoundEffects.playIncomingAlert()
+        }
+    }
+
+    /** Recarga las solicitudes pendientes dirigidas a ti. */
+    fun refreshFriendRequests() {
+        if (!useSupabase) return
+        viewModelScope.launch { refreshFriendRequestsInternal() }
+    }
+
+    private suspend fun refreshFriendRequestsInternal() {
+        try {
+            val me = _uiState.value.userProfile.id
+            val pending = SupabaseRepository.fetchContacts().filter {
+                it.contact_flippy_id.equals(me, ignoreCase = true) &&
+                    it.status.equals("pending", ignoreCase = true)
+            }
+            val profiles = try {
+                SupabaseRepository.fetchProfiles()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            _friendRequests.value = pending.map { row ->
+                val p = profiles.firstOrNull {
+                    it.flippy_id.equals(row.owner_flippy_id, ignoreCase = true)
+                }
+                FriendRequest(
+                    fromId = row.owner_flippy_id,
+                    fromName = p?.username ?: "Operador-${row.owner_flippy_id.takeLast(4)}",
+                    fromAvatar = p?.avatar ?: "🦊",
+                    photoUrl = SupabaseRepository.avatarPublicUrl(row.owner_flippy_id)
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cargando solicitudes de amistad", e)
+        }
+    }
+
+    /** ACEPTAR ✅: la solicitud pasa a "accepted" y tú agregas a la otra persona. */
+    fun acceptFriendRequest(fromId: String) {
+        if (!useSupabase) return
+        viewModelScope.launch {
+            try {
+                val me = _uiState.value.userProfile.id
+                // Paso 1: su solicitud queda aceptada
+                SupabaseRepository.updateContactStatus(fromId, me, "accepted")
+                // Paso 2: tú también lo agregas como amigo (si ya existía, solo se acepta)
+                SupabaseRepository.insertContact(
+                    ContactDto(
+                        owner_flippy_id = me,
+                        contact_flippy_id = fromId,
+                        status = "accepted"
+                    )
+                )
+                SupabaseRepository.updateContactStatus(me, fromId, "accepted")
+                _friendRequests.update { list ->
+                    list.filterNot { it.fromId.equals(fromId, ignoreCase = true) }
+                }
+                loadContactsFromSupabase()
+                SoundEffects.playIncomingAlert()
+                Log.i(TAG, "Solicitud aceptada: $fromId 🤝")
+            } catch (e: Exception) {
+                Log.e(TAG, "No se pudo aceptar la solicitud", e)
+            }
+        }
+    }
+
+    /** RECHAZAR ❌: se borra la solicitud y nadie entra a tu lista. */
+    fun rejectFriendRequest(fromId: String) {
+        if (!useSupabase) return
+        viewModelScope.launch {
+            try {
+                SupabaseRepository.deleteContact(fromId, _uiState.value.userProfile.id)
+                _friendRequests.update { list ->
+                    list.filterNot { it.fromId.equals(fromId, ignoreCase = true) }
+                }
+                Log.i(TAG, "Solicitud rechazada: $fromId")
+            } catch (e: Exception) {
+                Log.e(TAG, "No se pudo rechazar la solicitud", e)
+            }
         }
     }
 

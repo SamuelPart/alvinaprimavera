@@ -61,6 +61,9 @@ data class ChannelDto(
 data class ContactDto(
     val owner_flippy_id: String,
     val contact_flippy_id: String,
+    // "pending" = solicitud enviada · "accepted" = ya son amigos
+    // (las filas antiguas sin estado cuentan como aceptadas)
+    val status: String? = null,
     val created_at: String? = null
 )
 
@@ -171,6 +174,11 @@ object SupabaseRepository {
         supabase.realtime.channel("realtime:profiles_watch")
     }
 
+    // Vigila la tabla de contactos (solicitudes de amistad en tiempo real)
+    private val contactsChannel by lazy {
+        supabase.realtime.channel("realtime:contacts_watch")
+    }
+
     fun isConfigured(): Boolean =
         BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
 
@@ -208,6 +216,7 @@ object SupabaseRepository {
             messagesChannel.subscribe()
             pttChannel.subscribe()
             profilesChannel.subscribe()
+            contactsChannel.subscribe()
             true
         } catch (e: Exception) {
             Log.e("Flippy", "No se pudo conectar Realtime de Supabase", e)
@@ -305,12 +314,46 @@ object SupabaseRepository {
             val payload = buildJsonObject {
                 put("owner_flippy_id", contact.owner_flippy_id)
                 put("contact_flippy_id", contact.contact_flippy_id)
+                put("status", contact.status ?: "accepted")
             }
             supabase.postgrest.from("contacts").insert(payload)
         } catch (e: Exception) {
             // Ya existe o error de red: no es crítico
         }
     }
+
+    /** Cambia el estado de una relación (p. ej. solicitud → "accepted"). */
+    suspend fun updateContactStatus(ownerId: String, contactId: String, status: String) {
+        try {
+            supabase.postgrest.from("contacts").update({ set("status", status) }) {
+                filter {
+                    eq("owner_flippy_id", ownerId)
+                    eq("contact_flippy_id", contactId)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("Flippy", "No se pudo actualizar el contacto", e)
+        }
+    }
+
+    /** Borra la relación owner→contact (se usa al rechazar una solicitud). */
+    suspend fun deleteContact(ownerId: String, contactId: String) {
+        try {
+            supabase.postgrest.from("contacts").delete {
+                filter {
+                    eq("owner_flippy_id", ownerId)
+                    eq("contact_flippy_id", contactId)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("Flippy", "No se pudo borrar el contacto", e)
+        }
+    }
+
+    /** Emite CUALQUIER cambio en la tabla contacts (solicitudes en vivo). */
+    fun observeContactChanges(): Flow<PostgresAction> =
+        contactsChannel
+            .postgresChangeFlow<PostgresAction>(schema = "public") { table = "contacts" }
 
     // ---------- Mensajes de voz ----------
 

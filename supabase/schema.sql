@@ -41,9 +41,14 @@ create table if not exists public.contacts (
     id                  bigint generated always as identity primary key,
     owner_flippy_id     text not null,
     contact_flippy_id   text not null,
+    -- 'pending' = solicitud enviada · 'accepted' = amigos confirmados
+    status              text not null default 'accepted',
     created_at          timestamptz not null default now(),
     unique (owner_flippy_id, contact_flippy_id)
 );
+
+-- Si tu tabla contacts YA existía, ejecuta solo esto:
+-- alter table public.contacts add column if not exists status text default 'accepted';
 
 create table if not exists public.voice_messages (
     id               uuid primary key default gen_random_uuid(),
@@ -166,5 +171,15 @@ begin
           and tablename = 'profiles'
     ) then
         alter publication supabase_realtime add table public.profiles;
+    end if;
+
+    -- Solicitudes de amistad en vivo
+    if not exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = 'contacts'
+    ) then
+        alter publication supabase_realtime add table public.contacts;
     end if;
 end $$;

@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +34,7 @@ private const val RouteOnboarding = "onboarding"
 private const val RoutePlaybackMode = "playback_mode"
 private const val RouteProfileSetup = "profile_setup"
 private const val RoutePhoneVerify = "phone_verify"
+private const val RouteFriendRequests = "friend_requests"
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Ptt : Screen("ptt", "Radio", Icons.Default.Radio)
@@ -78,7 +80,9 @@ class MainActivity : ComponentActivity() {
             ?: data.lastPathSegment // For https://flippy.app/connect/FLIP-XXXX
 
         if (!contactId.isNullOrEmpty() && contactId.startsWith("FLIP-", ignoreCase = true)) {
-            viewModel.addContactById(contactId.uppercase())
+            viewModel.addContactById(contactId.uppercase()) { msg ->
+                android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
@@ -90,6 +94,8 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
     val sessionStatus by authViewModel.sessionStatus.collectAsStateWithLifecycle()
     val currentPlayingId by viewModel.currentPlayingId.collectAsStateWithLifecycle()
     val sessionKicked by viewModel.sessionKicked.collectAsStateWithLifecycle()
+    val friendRequests by viewModel.friendRequests.collectAsStateWithLifecycle()
+    val appContext = LocalContext.current
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -265,7 +271,15 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                         viewModel.selectDirectContact(it)
                         navController.popBackStack()
                     },
-                    onAddContactById = { viewModel.addContactById(it) },
+                    onAddContactById = { id ->
+                        viewModel.addContactById(id) { msg ->
+                            android.widget.Toast.makeText(
+                                appContext, msg, android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    requestCount = friendRequests.size,
+                    onOpenRequests = { navController.navigate(RouteFriendRequests) },
                     onOpenScanner = { navController.navigate(Screen.QrScanner.route) },
                     onOpenPhoneVerify = { navController.navigate(RoutePhoneVerify) },
                     onCreateGroup = {
@@ -279,6 +293,17 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                         viewModel.openAiBot()
                         navController.popBackStack()
                     },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            // ── Solicitudes de amistad: aceptar ✅ o rechazar ❌ ──
+            composable(RouteFriendRequests) {
+                LaunchedEffect(Unit) { viewModel.refreshFriendRequests() }
+                FriendRequestsScreen(
+                    requests = friendRequests,
+                    onAccept = { viewModel.acceptFriendRequest(it) },
+                    onReject = { viewModel.rejectFriendRequest(it) },
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -310,8 +335,12 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
 
             composable(Screen.QrScanner.route) {
                 QrScannerScreen(
-                    onContactScanned = {
-                        viewModel.addContactById(it)
+                    onContactScanned = { scannedId ->
+                        viewModel.addContactById(scannedId) { msg ->
+                            android.widget.Toast.makeText(
+                                appContext, msg, android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                         navController.popBackStack()
                     },
                     onBack = { navController.popBackStack() }

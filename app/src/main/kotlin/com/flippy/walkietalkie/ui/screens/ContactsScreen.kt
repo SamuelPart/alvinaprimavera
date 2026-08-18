@@ -5,7 +5,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -70,6 +69,8 @@ fun ContactsScreen(
     onOpenPhoneVerify: () -> Unit,
     onCreateGroup: () -> Unit,
     onChatWithAi: () -> Unit,
+    requestCount: Int,
+    onOpenRequests: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -326,11 +327,10 @@ fun ContactsScreen(
                         }
                         Button(
                             onClick = {
+                                // Envía la SOLICITUD; el mensaje lo muestra quien
+                                // llama (MainActivity) según el resultado 📨
                                 onAddContactById(item.candidate)
                                 searchQuery = ""
-                                Toast.makeText(
-                                    context, "¡Amigo agregado! 🎉", Toast.LENGTH_SHORT
-                                ).show()
                             },
                             shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -464,13 +464,8 @@ fun ContactsScreen(
                             icon = Icons.Default.MailOutline,
                             label = "Solicitudes",
                             tint = AccentBlue,
-                            onClick = {
-                                Toast.makeText(
-                                    context,
-                                    "No tienes solicitudes pendientes ✨",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                            badge = requestCount,
+                            onClick = onOpenRequests
                         )
                     }
 
@@ -497,12 +492,9 @@ fun ContactsScreen(
                             SuggestionCard(
                                 contact = dc,
                                 onAdd = {
+                                    // Envía la SOLICITUD 📨 (el toast lo muestra
+                                    // MainActivity con el resultado real)
                                     onAddContactById(dc.matched!!.flippy_id)
-                                    Toast.makeText(
-                                        context,
-                                        "¡${dc.matched!!.username} agregado! 🎉",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
                                 },
                                 onDismiss = {
                                     dismissedSuggestions =
@@ -690,7 +682,8 @@ private fun QuickOption(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     tint: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    badge: Int = 0
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -700,20 +693,42 @@ private fun QuickOption(
             .clickable(onClick = onClick)
             .padding(6.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(58.dp)
-                .clip(CircleShape)
-                .background(tint.copy(alpha = 0.14f))
-                .border(1.dp, tint.copy(alpha = 0.35f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(26.dp)
-            )
+        Box {
+            Box(
+                modifier = Modifier
+                    .size(58.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.14f))
+                    .border(1.dp, tint.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+            // 🔴 Insignia con la cantidad de solicitudes pendientes
+            if (badge > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-3).dp)
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(RecordRed)
+                        .border(2.dp, Background, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (badge > 9) "9+" else "$badge",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+                }
+            }
         }
         Text(
             text = label,
