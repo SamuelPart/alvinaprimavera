@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -223,10 +225,12 @@ object SupabaseRepository {
     @Volatile
     private var realtimeReady = false
 
-    @Synchronized
-    suspend fun connectRealtime(): Boolean {
-        if (realtimeReady) return true
-        return try {
+    // En Kotlin las funciones suspend se serializan con Mutex
+    private val realtimeMutex = kotlinx.coroutines.sync.Mutex()
+
+    suspend fun connectRealtime(): Boolean = realtimeMutex.withLock {
+        if (realtimeReady) return@withLock true
+        return@withLock try {
             supabase.realtime.connect()
             // Suscripción tolerante: si un canal ya estaba suscrito
             // (por el servicio o la app), NO es un error, seguimos ✅
