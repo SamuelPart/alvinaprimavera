@@ -2,29 +2,38 @@ package com.flippy.walkietalkie.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val BlackBackground = Color(0xFF090D14)
-val PanelBackground = Color(0xFF111622)
-val CardBackground = Color(0xFF141C2B)
-val BorderDark = Color(0xFF1E2A3D)
-val BorderLight = Color(0xFF2E3E5B)
+// ============================================================
+//  Flippy · Paleta moderna minimalista (tema oscuro suave)
+// ============================================================
 
-val NeonEmerald = Color(0xFF00FF88)
-val EmeraldDark = Color(0xFF064E3B)
-val EmeraldGlow = Color(0x3300FF88)
+// Fondos
+val Background = Color(0xFF0F1216)
+val Surface = Color(0xFF171C22)
+val SurfaceElevated = Color(0xFF1D242D)
+val SurfaceMuted = Color(0xFF232B35)
 
-val NeonCyan = Color(0xFF00E5FF)
-val CyanDark = Color(0xFF083344)
+// Bordes sutiles
+val Outline = Color(0xFF262D38)
+val OutlineLight = Color(0xFF333C49)
 
-val NeonRed = Color(0xFFFF3344)
-val RedDark = Color(0xFF4C0519)
+// Acento principal: menta suave
+val Accent = Color(0xFF2FD4A7)
+val AccentDark = Color(0xFF1E8F73)
+val AccentContainer = Color(0x1F2FD4A7)
 
-val NeonAmber = Color(0xFFFFAA00)
-val AmberDark = Color(0xFF451A03)
+// Acento secundario: azul cielo (estado "escuchando" / en línea)
+val AccentBlue = Color(0xFF5EA8FF)
+val AccentBlueContainer = Color(0x1F5EA8FF)
 
-val TextWhite = Color(0xFFF8FAFC)
-val TextGray = Color(0xFF94A3B8)
-val TextDarkGray = Color(0xFF64748B)
+// Grabación / TX
+val RecordRed = Color(0xFFF26D6D)
+val RecordRedContainer = Color(0x1FF26D6D)
 
-val LcdGreenBg = Color(0xFF05120B)
-val LcdGreenBorder = Color(0xFF143527)
-val LcdGreenText = Color(0xFF00FF88)
+// Avisos suaves
+val WarningAmber = Color(0xFFF4B860)
+val WarningAmberContainer = Color(0x1FF4B860)
+
+// Texto
+val TextPrimary = Color(0xFFF3F6F9)
+val TextSecondary = Color(0xFF9AA5B1)
+val TextTertiary = Color(0xFF5F6B78)

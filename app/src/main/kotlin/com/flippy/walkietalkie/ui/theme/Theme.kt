@@ -9,39 +9,46 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = NeonEmerald,
-    onPrimary = BlackBackground,
-    secondary = NeonCyan,
-    onSecondary = BlackBackground,
-    tertiary = NeonAmber,
-    background = BlackBackground,
-    surface = PanelBackground,
-    onBackground = TextWhite,
-    onSurface = TextWhite,
-    surfaceVariant = CardBackground,
-    onSurfaceVariant = TextGray,
-    outline = BorderDark
+private val FlippyDarkScheme = darkColorScheme(
+    primary = Accent,
+    onPrimary = Background,
+    primaryContainer = AccentContainer,
+    onPrimaryContainer = Accent,
+    secondary = AccentBlue,
+    onSecondary = Background,
+    secondaryContainer = AccentBlueContainer,
+    onSecondaryContainer = AccentBlue,
+    tertiary = WarningAmber,
+    error = RecordRed,
+    onError = Background,
+    background = Background,
+    onBackground = TextPrimary,
+    surface = Surface,
+    onSurface = TextPrimary,
+    surfaceVariant = SurfaceElevated,
+    onSurfaceVariant = TextSecondary,
+    outline = Outline,
+    outlineVariant = OutlineLight
 )
 
 @Composable
 fun FlippyTheme(
     content: @Composable () -> Unit
 ) {
-    val colorScheme = DarkColorScheme
     val view = LocalView.current
 
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = BlackBackground.toArgb()
-            window.navigationBarColor = BlackBackground.toArgb()
+            window.statusBarColor = Background.toArgb()
+            window.navigationBarColor = Background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
         }
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = FlippyDarkScheme,
         typography = Typography,
         content = content
     )

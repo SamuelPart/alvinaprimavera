@@ -11,84 +11,74 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.flippy.walkietalkie.ui.theme.*
 
+/**
+ * Botón PTT: micrófono en contenedor circular, SIN texto.
+ * Al mantenerlo presionado se enciende rojo con anillo de pulso.
+ */
 @Composable
 fun PttButton(
     isRecording: Boolean,
-    recordDurationSec: Float,
     onPressStart: () -> Unit,
     onPressEnd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
 
-    // Pulsing Wave Animation when Transmitting
+    // Anillo de pulso suave mientras se transmite
     val infiniteTransition = rememberInfiniteTransition(label = "ptt_pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.35f,
+        targetValue = 1.22f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "pulse_scale"
     )
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
+        initialValue = 0.30f,
         targetValue = 0.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "pulse_alpha"
     )
 
     Box(
-        modifier = modifier.size(190.dp),
+        modifier = modifier.size(210.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Outer pulsing ring when transmitting
         if (isRecording) {
             Box(
                 modifier = Modifier
-                    .size(180.dp)
+                    .size(172.dp)
                     .scale(pulseScale)
                     .clip(CircleShape)
-                    .background(NeonRed.copy(alpha = pulseAlpha))
+                    .background(RecordRed.copy(alpha = pulseAlpha))
             )
         }
 
-        // Tactile Button Body
+        // Cuerpo del botón: círculo plano con el puro micrófono
         Box(
             modifier = Modifier
-                .size(165.dp)
+                .size(168.dp)
                 .clip(CircleShape)
-                .background(
-                    if (isRecording) {
-                        Brush.verticalGradient(listOf(Color(0xFFDC2626), Color(0xFF7F1D1D)))
-                    } else {
-                        Brush.verticalGradient(listOf(Color(0xFF1E293B), Color(0xFF0F172A)))
-                    }
-                )
+                .background(if (isRecording) RecordRed else SurfaceElevated)
                 .border(
-                    width = 4.dp,
-                    color = if (isRecording) NeonRed else NeonEmerald.copy(alpha = 0.8f),
+                    width = 1.5.dp,
+                    color = if (isRecording) RecordRed else OutlineLight,
                     shape = CircleShape
                 )
                 .pointerInput(Unit) {
@@ -104,34 +94,12 @@ fun PttButton(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Push to talk",
-                    tint = if (isRecording) TextWhite else NeonEmerald,
-                    modifier = Modifier.size(42.dp)
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = if (isRecording) "TRANSMITIENDO" else "PUSH TO TALK",
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 12.sp,
-                    color = if (isRecording) TextWhite else NeonEmerald
-                )
-
-                Text(
-                    text = if (isRecording) String.format("%.1fs / 30s", recordDurationSec) else "Mantén presionado",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
-                    color = if (isRecording) Color(0xFFFFCCCC) else TextGray
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Mantén para hablar",
+                tint = if (isRecording) TextPrimary else Accent,
+                modifier = Modifier.size(52.dp)
+            )
         }
     }
 }

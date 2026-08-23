@@ -14,7 +14,6 @@ val localProperties = Properties().apply {
 }
 val supabaseUrl: String = localProperties.getProperty("supabase.url", "").replace("\"", "\\\"")
 val supabaseAnonKey: String = localProperties.getProperty("supabase.anon_key", "").replace("\"", "\\\"")
-
 android {
     namespace = "com.flippy.walkietalkie"
     compileSdk = 34
@@ -91,6 +90,15 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
 
+    // Vosk: transcripción de voz a texto OFFLINE y gratis (plan B
+    // universal cuando el reconocedor del sistema no responde).
+    // El modelo en español (~42 MB) se descarga una sola vez.
+    implementation("com.alphacephei:vosk-android:0.3.47")
+
+    // 🌐 Traducción automática GRATIS y en el teléfono (por amigo)
+    implementation("com.google.mlkit:language-id:17.0.6")
+    implementation("com.google.mlkit:translate:17.0.3")
+
     // CameraX for QR Scanning
     val cameraxVersion = "1.3.4"
     implementation("androidx.camera:camera-core:$cameraxVersion")
@@ -101,11 +109,18 @@ dependencies {
     // ZXing for QR Code generation and barcode analysis
     implementation("com.google.zxing:core:3.5.3")
 
+    // ExifInterface: corregir la orientación de fotos de perfil tomadas con la cámara
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // Coil: carga fotos de perfil remotas desde Supabase Storage (URLs públicas)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // ===== Supabase (base de datos, realtime y storage en la nube) =====
     implementation(platform("io.github.jan-tennert.supabase:bom:2.4.3"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
     implementation("io.ktor:ktor-client-okhttp:2.3.12")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 

@@ -1,10 +1,10 @@
 package com.flippy.walkietalkie.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,13 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.flippy.walkietalkie.audio.SoundEffects
 import com.flippy.walkietalkie.data.model.VoiceMessage
+import com.flippy.walkietalkie.data.supabase.SupabaseRepository
+import com.flippy.walkietalkie.ui.components.PeerAvatar
 import com.flippy.walkietalkie.ui.theme.*
 
 @Composable
@@ -33,17 +31,18 @@ fun HistoryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BlackBackground)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .background(Background)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(
-            text = "REGISTRO DE TRANSMISIONES (${messages.size})",
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            color = TextWhite
-        )
+        // ── Cabecera ───────────────────────────────────────────
+        Column {
+            Text(text = "Audios", style = Typography.headlineMedium)
+            Text(
+                text = "${messages.size} transmisiones recibidas",
+                style = Typography.bodyMedium
+            )
+        }
 
         if (messages.isEmpty()) {
             Box(
@@ -52,19 +51,26 @@ fun HistoryScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Radio,
-                        contentDescription = null,
-                        tint = TextDarkGray,
-                        modifier = Modifier.size(48.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Surface),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = TextTertiary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                     Text(
-                        text = "No hay audios en el registro todavía.",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = TextDarkGray
+                        text = "Todavía no hay audios.\nMantén el botón PTT para transmitir.",
+                        style = Typography.bodyMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
             }
@@ -79,17 +85,12 @@ fun HistoryScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isPlaying) NeonEmerald.copy(alpha = 0.10f) else CardBackground)
-                            .border(
-                                width = 1.dp,
-                                color = if (isPlaying) NeonEmerald else BorderDark,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isPlaying) AccentContainer else Surface)
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Header
+                        // Emisor + duración
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -97,58 +98,35 @@ fun HistoryScreen(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(PanelBackground),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(text = msg.senderAvatar, fontSize = 14.sp)
-                                }
+                                // Foto del remitente desde Supabase (o emoji si no tiene)
+                                PeerAvatar(
+                                    photoUrl = SupabaseRepository.avatarPublicUrl(msg.senderId),
+                                    fallbackEmoji = msg.senderAvatar,
+                                    sizeDp = 34,
+                                    backgroundColor = SurfaceElevated
+                                )
                                 Text(
                                     text = msg.senderName,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = TextWhite
+                                    style = Typography.titleMedium,
+                                    maxLines = 1
                                 )
                             }
 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFF0F172A))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = msg.filter.uppercase(),
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 9.sp,
-                                        color = NeonCyan
-                                    )
-                                }
-                                Text(
-                                    text = String.format("%.1fs", msg.duration),
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 10.sp,
-                                    color = TextGray
-                                )
-                            }
+                            Text(
+                                text = String.format("%.1fs · %s", msg.duration, msg.filter),
+                                style = Typography.labelSmall
+                            )
                         }
 
-                        // Audio Player Row
+                        // Reproductor
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(PanelBackground)
-                                .padding(8.dp),
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(SurfaceElevated)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
@@ -156,21 +134,21 @@ fun HistoryScreen(
                                 onClick = { if (isPlaying) onStopPlayback() else onPlayMessage(msg) },
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .clip(RoundedCornerShape(18.dp))
-                                    .background(if (isPlaying) NeonRed else NeonEmerald)
+                                    .clip(CircleShape)
+                                    .background(if (isPlaying) RecordRed else Accent)
                             ) {
                                 Icon(
-                                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = "Play",
-                                    tint = BlackBackground,
-                                    modifier = Modifier.size(20.dp)
+                                    imageVector = if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                    contentDescription = if (isPlaying) "Detener" else "Reproducir",
+                                    tint = Background,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
 
-                            // Simulated Waveform Bars
+                            // Onda decorativa
                             Row(
                                 modifier = Modifier.weight(1f),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val heights = listOf(0.4f, 0.7f, 1f, 0.5f, 0.8f, 0.3f, 0.9f, 0.6f, 0.4f, 0.8f, 0.5f, 0.9f, 0.7f, 0.4f, 0.6f, 0.3f)
@@ -178,46 +156,21 @@ fun HistoryScreen(
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height((24 * h).dp)
-                                            .clip(RoundedCornerShape(1.dp))
-                                            .background(if (isPlaying) NeonEmerald else TextDarkGray)
+                                            .height((22 * h).dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(if (isPlaying) Accent else TextTertiary)
                                     )
                                 }
                             }
                         }
 
-                        // Transcription Box
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF090D14))
-                                .padding(8.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = null,
-                                    tint = NeonEmerald,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = "TRANSCRIPCIÓN:",
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 9.sp,
-                                    color = NeonEmerald
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "\"${msg.transcription}\"",
-                                fontSize = 11.sp,
-                                color = TextWhite
-                            )
-                        }
+                        // Transcripción real (o etiqueta simple si no hay)
+                        Text(
+                            text = if (msg.transcription.isBlank()) "🎙️ Audio de voz"
+                            else "\"${msg.transcription}\"",
+                            style = Typography.bodySmall,
+                            fontStyle = FontStyle.Italic
+                        )
                     }
                 }
             }
