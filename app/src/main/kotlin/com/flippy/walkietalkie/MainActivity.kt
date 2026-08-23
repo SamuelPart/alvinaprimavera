@@ -273,6 +273,16 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                     onOpenFriendChat = { contactId ->
                         navController.navigate("chat_friend/$contactId")
                     },
+                    friendSettings = uiState.friendSettings,
+                    onFriendAliasChange = { id, alias -> viewModel.setFriendAlias(id, alias) },
+                    onFriendToggleMuteAutoplay = { viewModel.toggleFriendMuteAutoplay(it) },
+                    onFriendToggleMuteNotify = { viewModel.toggleFriendMuteNotify(it) },
+                    onFriendToggleTranslate = { viewModel.toggleFriendTranslate(it) },
+                    onFriendSetBlocked = { id, blocked -> viewModel.setFriendBlocked(id, blocked) },
+                    onFriendClearHistory = { viewModel.clearFriendHistory(it) },
+                    onFriendRemove = { viewModel.removeFriend(it) },
+                    onFriendReport = { viewModel.reportFriend(it) },
+                    onFriendCreateGroup = { viewModel.createGroupWith(it) },
                     currentPlayingId = currentPlayingId
                 )
             }
@@ -345,7 +355,7 @@ fun FlippyAppNavigation(viewModel: FlippyViewModel, authViewModel: AuthViewModel
                 val contactId = entry.arguments?.getString("contactId").orEmpty()
                 val friend = uiState.contacts.firstOrNull {
                     it.id.equals(contactId, ignoreCase = true)
-                }
+                }?.let { uiState.withDisplayName(it) } // ✏️ con tu alias
                 if (friend != null) {
                     // El micrófono de este chat habla con ESTE amigo 🎙️
                     LaunchedEffect(contactId) { viewModel.selectDirectContact(friend) }

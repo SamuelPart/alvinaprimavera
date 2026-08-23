@@ -52,6 +52,7 @@ import java.time.temporal.ChronoUnit
 import com.flippy.walkietalkie.ui.components.*
 import com.flippy.walkietalkie.ui.theme.*
 import com.flippy.walkietalkie.ui.viewmodel.FlippyUiState
+import com.flippy.walkietalkie.ui.viewmodel.FriendSettings
 import kotlinx.coroutines.delay
 
 // ============================================================
@@ -76,11 +77,24 @@ fun MainConsoleScreen(
     onPlayMessage: (VoiceMessage) -> Unit = {},
     onStopPlayback: () -> Unit = {},
     onOpenFriendChat: (String) -> Unit = {},
+    // ⚙️ Ajustes por amigo (panel que se abre al tocar su foto)
+    friendSettings: Map<String, FriendSettings> = emptyMap(),
+    onFriendAliasChange: (String, String) -> Unit = { _, _ -> },
+    onFriendToggleMuteAutoplay: (String) -> Unit = {},
+    onFriendToggleMuteNotify: (String) -> Unit = {},
+    onFriendToggleTranslate: (String) -> Unit = {},
+    onFriendSetBlocked: (String, Boolean) -> Unit = { _, _ -> },
+    onFriendClearHistory: (String) -> Unit = {},
+    onFriendRemove: (String) -> Unit = {},
+    onFriendReport: (String) -> Unit = {},
+    onFriendCreateGroup: (User) -> Unit = {},
     currentPlayingId: String? = null,
     modifier: Modifier = Modifier
 ) {
     var showAddFriendsDialog by remember { mutableStateOf(false) }
     var showNewChatSheet by remember { mutableStateOf(false) }
+    // Amigo cuyo panel de opciones está abierto (null = cerrado)
+    var optionsFor by remember { mutableStateOf<User?>(null) }
 
     Box(
         modifier = modifier
@@ -279,10 +293,12 @@ fun MainConsoleScreen(
             }
 
             FriendsCarousel(
-                contacts = uiState.contacts,
+                // Se muestran con TU alias (si les pusiste uno) ✏️
+                contacts = uiState.contacts.map { uiState.withDisplayName(it) },
                 frontIndex = frontIndex,
                 onSelectIndex = { selectedIndex = it },
-                onNewChat = { showNewChatSheet = true }
+                onNewChat = { showNewChatSheet = true },
+                onFriendClick = { optionsFor = it } // ⚙️ toca su foto → panel
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -306,7 +322,7 @@ fun MainConsoleScreen(
                         }
                     }
                     ChatPreviewCard(
-                        friend = friend,
+                        friend = uiState.withDisplayName(friend),
                         message = lastMessage,
                         myId = myId,
                         isPlaying = lastMessage != null && lastMessage.id == currentPlayingId,
@@ -336,6 +352,36 @@ fun MainConsoleScreen(
         )
 
         Spacer(modifier = Modifier.height(26.dp))
+    }
+
+    // ── ⚙️ Panel del amigo: se desliza de abajo hacia arriba ⬆️ ──
+    optionsFor?.let { friend ->
+        val settings = friendSettings[friend.id] ?: FriendSettings()
+        FriendOptionsSheet(
+            friend = friend,
+            settings = settings,
+            onDismiss = { optionsFor = null },
+            onOpenChat = {
+                optionsFor = null
+                onSelectContact(friend)
+                onOpenFriendChat(friend.id)
+            },
+            onAliasChange = { onFriendAliasChange(friend.id, it) },
+            onCreateGroup = {
+                optionsFor = null
+                onFriendCreateGroup(friend)
+            },
+            onToggleMuteAutoplay = { onFriendToggleMuteAutoplay(friend.id) },
+            onToggleMuteNotify = { onFriendToggleMuteNotify(friend.id) },
+            onToggleTranslate = { onFriendToggleTranslate(friend.id) },
+            onClearHistory = { onFriendClearHistory(friend.id) },
+            onSetBlocked = { onFriendSetBlocked(friend.id, it) },
+            onReport = { onFriendReport(friend.id) },
+            onRemove = {
+                optionsFor = null
+                onFriendRemove(friend.id)
+            }
+        )
     }
 
     // ── Ventana emergente: agregar amigos ──
@@ -709,7 +755,8 @@ private fun FriendsCarousel(
     contacts: List<User>,
     frontIndex: Int, // 0 = Nuevo chat · 1..n = contacts[frontIndex-1]
     onSelectIndex: (Int) -> Unit,
-    onNewChat: () -> Unit
+    onNewChat: () -> Unit,
+    onFriendClick: (User) -> Unit // ⚙️ tocar la foto del amigo → su panel
 ) {
     val shape = RoundedCornerShape(32.dp)
     Column(
@@ -740,7 +787,14 @@ private fun FriendsCarousel(
                         drag += amount
                     }
                 }
-                .clickable(enabled = frontIndex == 0) { onNewChat() }
+                .clickable {
+                    if (frontIndex == 0) {
+                        onNewChat()
+                    } else {
+                        // Tocar la foto del amigo abre SU panel de opciones ⚙️
+                        contacts.getOrNull(frontIndex - 1)?.let(onFriendClick)
+                    }
+                }
                 .padding(vertical = 26.dp, horizontal = 20.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -1059,7 +1113,10 @@ private fun ChatPreviewCard(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = message.transcription.ifBlank { "🎙️ Mensaje de voz" },
+                    // 🌐 Muestra la traducción si activaste la opción para ese amigo
+                    text = message.translations[java.util.Locale.getDefault().language]
+                        ?.takeIf { it.isNotBlank() }
+                        ?: message.transcription.ifBlank { "🎙️ Mensaje de voz" },
                     fontSize = 14.sp,
                     lineHeight = 19.sp,
                     color = TextPrimary,

@@ -183,3 +183,21 @@ begin
         alter publication supabase_realtime add table public.contacts;
     end if;
 end $$;
+
+-- ============================================================
+--  5. DENUNCIAS 🛡️ (botón «Denunciar» del panel del amigo)
+-- ============================================================
+
+create table if not exists public.reports (
+    id                  bigint generated always as identity primary key,
+    reporter_flippy_id  text not null,
+    reported_flippy_id  text not null,
+    reason              text not null default '',
+    created_at          timestamptz not null default now()
+);
+
+alter table public.reports enable row level security;
+
+drop policy if exists flippy_public_all on public.reports;
+create policy flippy_public_all on public.reports
+    for all using (true) with check (true);

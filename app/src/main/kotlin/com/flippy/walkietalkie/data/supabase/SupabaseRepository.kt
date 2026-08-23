@@ -73,6 +73,13 @@ data class ContactDto(
 )
 
 @Serializable
+data class ReportDto(
+    val reporter_flippy_id: String,
+    val reported_flippy_id: String,
+    val reason: String = ""
+)
+
+@Serializable
 data class VoiceMessageDto(
     val id: String? = null,
     val sender_flippy_id: String,
@@ -358,6 +365,11 @@ object SupabaseRepository {
         } catch (e: Exception) {
             Log.e("Flippy", "No se pudo actualizar el contacto", e)
         }
+    }
+
+    /** Registra una denuncia 🛡️ (necesita la tabla «reports» del schema.sql). */
+    suspend fun insertReport(report: ReportDto) {
+        supabase.postgrest.from("reports").insert(report)
     }
 
     /** Borra la relación owner→contact (se usa al rechazar una solicitud). */

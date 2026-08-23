@@ -18,6 +18,7 @@ import com.flippy.walkietalkie.data.supabase.*
 import com.flippy.walkietalkie.network.SocketEvent
 import com.flippy.walkietalkie.network.WebSocketClient
 import com.flippy.walkietalkie.service.WalkieTalkieForegroundService
+import com.flippy.walkietalkie.util.MessageTranslator
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,15 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.random.Random
+
+/** Ajustes que TÚ guardas para CADA amigo (viven solo en tu teléfono 📱). */
+data class FriendSettings(
+    val alias: String = "",
+    val mutedAutoplay: Boolean = false,
+    val mutedNotify: Boolean = false,
+    val translateAuto: Boolean = false,
+    val blocked: Boolean = false
+)
 
 data class FlippyUiState(
     val userProfile: User = User(
@@ -64,8 +74,19 @@ data class FlippyUiState(
     val profilePhotoPath: String? = null,
     val profileCreated: Boolean = false,
     val profilePhone: String? = null,
+    // Alias y ajustes personales por amigo (los pones tú, por separado)
+    val aliases: Map<String, String> = emptyMap(),
+    val friendSettings: Map<String, FriendSettings> = emptyMap(),
     val serverUrl: String = "ws://10.0.2.2:3000/ws"
-)
+) {
+    /** Nombre que VES: tu alias si lo pusiste, si no, su nombre registrado. */
+    fun displayNameOf(user: User): String =
+        aliases[user.id]?.takeIf { it.isNotBlank() } ?: user.username
+
+    /** Copia del amigo con tu alias aplicado como nombre visible. */
+    fun withDisplayName(user: User): User =
+        aliases[user.id]?.takeIf { it.isNotBlank() }?.let { user.copy(username = it) } ?: user
+}
 
 class FlippyViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -104,6 +125,9 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
 
     private var profileWatchStarted = false
 
+    // Ajustes guardados por amigo (alias, silencios, traducción, bloqueo)
+    private val initialFriendSettings = loadFriendSettings()
+
     private val _uiState = MutableStateFlow(
         FlippyUiState(
             userProfile = loadOrCreateLocalProfile(),
@@ -113,6 +137,8 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             profilePhotoPath = prefs.getString("profile_photo", null),
             profileCreated = prefs.getBoolean("profile_done", false),
             profilePhone = prefs.getString("profile_phone", null),
+            friendSettings = initialFriendSettings,
+            aliases = aliasesOf(initialFriendSettings),
             serverUrl = prefs.getString("server_url", "ws://10.0.2.2:3000/ws") ?: "ws://10.0.2.2:3000/ws"
         )
     )
@@ -202,13 +228,22 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
             launch {
                 incomingMessages.collect { dto ->
                     if (dto.sender_flippy_id == _uiState.value.userProfile.id) return@collect
+                    // ⛔ Amigo bloqueado: sus audios se ignoran por completo
+                    val fs = _uiState.value.friendSettings[dto.sender_flippy_id]
+                    if (fs?.blocked == true) return@collect
                     Log.i(TAG, "📥 Mensaje entrante de ${dto.sender_name} (${dto.target_id})")
                     val msg = dto.toVoiceMessage()
                     _uiState.update {
                         it.copy(isIncoming = false, messages = listOf(msg) + it.messages)
                     }
-                    if (_uiState.value.autoPlayIncoming) {
+                    // 🔇 Silenciar autoreproducción SOLO para este amigo
+                    if (_uiState.value.autoPlayIncoming && fs?.mutedAutoplay != true) {
                         playRemoteAudio(msg)
+                    }
+                    // 🌐 Traducción automática si la activaste para este amigo
+                    maybeAutoTranslate(dto.sender_flippy_id, dto.transcription) { m ->
+                        m.id == msg.id ||
+                            (!dto.audio_url.isNullOrBlank() && m.audioUrl == dto.audio_url)
                     }
                 }
             }
@@ -227,7 +262,11 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                             // Terminó de grabar → sonido de notificación 🔔 y el
                             // mensaje llega enseguida y se reproduce al instante
                             _uiState.update { it.copy(isIncoming = false) }
-                            SoundEffects.playIncomingAlert()
+                            // 🔕 ¿Silenciaste sus avisos (o lo bloqueaste)? → ni pío
+                            val fs = _uiState.value.friendSettings[event.sender_flippy_id]
+                            if (fs?.mutedNotify != true && fs?.blocked != true) {
+                                SoundEffects.playIncomingAlert()
+                            }
                         }
                     }
                 }
@@ -246,6 +285,11 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                                 m.copy(transcription = dto.transcription)
                             } else m
                         })
+                    }
+                    // El texto que acaba de llegar también se traduce si toca 🌐
+                    maybeAutoTranslate(dto.sender_flippy_id, dto.transcription) { m ->
+                        (m.audioUrl != null && m.audioUrl == dto.audio_url) ||
+                            (!dto.id.isNullOrBlank() && m.id == dto.id)
                     }
                 }
             }
@@ -603,6 +647,7 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun loadMessageHistoryFromSupabase() {
         try {
             val history = SupabaseRepository.fetchMessages(50).map { it.toVoiceMessage() }
+                .filterNot { _uiState.value.friendSettings[it.senderId]?.blocked == true }
             if (history.isEmpty()) return
             _uiState.update { state ->
                 val knownIds = state.messages.map { it.id }.toSet()
@@ -614,6 +659,10 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                             (it.audioUrl == null || it.audioUrl !in knownPaths)
                     }
                 )
+            }
+            // 🌐 Traduce al vuelo los textos de amigos con traducción activada
+            history.forEach { m ->
+                maybeAutoTranslate(m.senderId, m.transcription) { it.id == m.id }
             }
             Log.i(TAG, "Historial desde Supabase: ${history.size} mensajes")
         } catch (e: Exception) {
@@ -1084,6 +1133,155 @@ class FlippyViewModel(application: Application) : AndroidViewModel(application) 
                 Log.i(TAG, "Solicitud rechazada: $fromId")
             } catch (e: Exception) {
                 Log.e(TAG, "No se pudo rechazar la solicitud", e)
+            }
+        }
+    }
+
+    // ============================================================
+    //  ⚙️ Ajustes POR AMIGO (panel del círculo de su foto):
+    //  alias, silencios, traducción y bloqueo — cada amigo lleva
+    //  los suyos, guardados solo en tu teléfono.
+    // ============================================================
+
+    private fun loadFriendSettings(): Map<String, FriendSettings> {
+        val ids = prefs.getStringSet("fs_ids", emptySet()).orEmpty()
+        return ids.associateWith { id ->
+            FriendSettings(
+                alias = prefs.getString("fs_alias_$id", "") ?: "",
+                mutedAutoplay = prefs.getBoolean("fs_muteauto_$id", false),
+                mutedNotify = prefs.getBoolean("fs_mutenotif_$id", false),
+                translateAuto = prefs.getBoolean("fs_translate_$id", false),
+                blocked = prefs.getBoolean("fs_blocked_$id", false)
+            )
+        }
+    }
+
+    private fun aliasesOf(map: Map<String, FriendSettings>): Map<String, String> =
+        map.mapValues { it.value.alias }.filterValues { it.isNotBlank() }
+
+    private fun updateFriendSettings(id: String, change: (FriendSettings) -> FriendSettings) {
+        if (id.isBlank()) return
+        val map = _uiState.value.friendSettings.toMutableMap()
+        map[id] = change(map[id] ?: FriendSettings())
+        val s = map.getValue(id)
+        prefs.edit()
+            .putStringSet("fs_ids", map.keys)
+            .putString("fs_alias_$id", s.alias)
+            .putBoolean("fs_muteauto_$id", s.mutedAutoplay)
+            .putBoolean("fs_mutenotif_$id", s.mutedNotify)
+            .putBoolean("fs_translate_$id", s.translateAuto)
+            .putBoolean("fs_blocked_$id", s.blocked)
+            .apply()
+        _uiState.update { it.copy(friendSettings = map, aliases = aliasesOf(map)) }
+    }
+
+    /** ✏️ Nombre con el que TÚ ves a tu amigo (vacío = su nombre real). */
+    fun setFriendAlias(id: String, alias: String) =
+        updateFriendSettings(id) { it.copy(alias = alias.trim()) }
+
+    /** 🔇 Sus audios ya no se reproducen solos (solo de este amigo). */
+    fun toggleFriendMuteAutoplay(id: String) =
+        updateFriendSettings(id) { it.copy(mutedAutoplay = !it.mutedAutoplay) }
+
+    /** 🔕 Sin sonido de aviso cuando este amigo te escriba. */
+    fun toggleFriendMuteNotify(id: String) =
+        updateFriendSettings(id) { it.copy(mutedNotify = !it.mutedNotify) }
+
+    /** 🌐 Traducir automáticamente las transcripciones de este amigo. */
+    fun toggleFriendTranslate(id: String) =
+        updateFriendSettings(id) { it.copy(translateAuto = !it.translateAuto) }
+
+    /** ⛔ Bloquear: no recibes NADA de esta persona (reversible). */
+    fun setFriendBlocked(id: String, blocked: Boolean) {
+        updateFriendSettings(id) { it.copy(blocked = blocked) }
+        _sendAlerts.tryEmit(
+            if (blocked) "⛔ Amigo bloqueado: ya no llegarán sus audios"
+            else "✅ Amigo desbloqueado"
+        )
+    }
+
+    /** 🧹 Borra ESTE chat solo en tu teléfono (él conserva el suyo). */
+    fun clearFriendHistory(friendId: String) {
+        val myId = _uiState.value.userProfile.id
+        _uiState.update { st ->
+            st.copy(messages = st.messages.filterNot { m ->
+                m.senderId.equals(friendId, true) ||
+                    (m.senderId.equals(myId, true) && m.targetId.equals(friendId, true))
+            })
+        }
+        _sendAlerts.tryEmit("🧹 Historial de este chat borrado en tu teléfono")
+    }
+
+    /** 💔 Quitar amigo: desaparece de TU lista (tú sigues en la suya). */
+    fun removeFriend(friendId: String) {
+        if (useSupabase) {
+            viewModelScope.launch {
+                runCatching {
+                    SupabaseRepository.deleteContact(
+                        _uiState.value.userProfile.id, friendId
+                    )
+                }.onFailure { Log.e(TAG, "No se pudo quitar al amigo", it) }
+            }
+        }
+        _uiState.update { st ->
+            val wasActive = st.activeContact?.id.equals(friendId, true)
+            st.copy(
+                contacts = st.contacts.filterNot { it.id.equals(friendId, true) },
+                activeContact = st.activeContact?.takeUnless { wasActive },
+                isChannelMode = if (wasActive) true else st.isChannelMode
+            )
+        }
+        _sendAlerts.tryEmit("Amigo eliminado de tu lista 💔")
+    }
+
+    /** 🛡️ Denuncia: queda registrada en la nube para revisión. */
+    fun reportFriend(friendId: String) {
+        if (useSupabase) {
+            viewModelScope.launch {
+                runCatching {
+                    SupabaseRepository.insertReport(
+                        ReportDto(
+                            reporter_flippy_id = _uiState.value.userProfile.id,
+                            reported_flippy_id = friendId
+                        )
+                    )
+                }.onFailure {
+                    Log.e(TAG, "Denuncia solo local (¿schema.sql actualizado?)", it)
+                }
+            }
+        }
+        _sendAlerts.tryEmit("🛡️ ¡Gracias! Revisaremos tu denuncia lo antes posible")
+    }
+
+    /** 👥 Crea un grupo (canal privado) con el nombre de tu amigo. */
+    fun createGroupWith(friend: User) {
+        val display = _uiState.value.displayNameOf(friend)
+        createCustomChannel(
+            name = "Grupo con $display",
+            frequency = "446.0${Random.nextInt(10, 99)} MHz",
+            description = "Grupo privado con $display",
+            pin = null
+        )
+        _sendAlerts.tryEmit("👥 «Grupo con $display» creado: búscalo en Canales")
+    }
+
+    /** 🌐 Traduce el texto si activaste «Traducción automática» para ese amigo. */
+    private fun maybeAutoTranslate(
+        senderId: String,
+        text: String,
+        matches: (VoiceMessage) -> Boolean
+    ) {
+        val fs = _uiState.value.friendSettings[senderId]
+        if (fs?.translateAuto != true || text.isBlank() || fs.blocked) return
+        MessageTranslator.translateIfForeign(text) { translated ->
+            if (translated.isNullOrBlank()) return@translateIfForeign
+            val lang = MessageTranslator.targetLanguage
+            _uiState.update { st ->
+                st.copy(messages = st.messages.map { m ->
+                    if (matches(m) && m.transcription == text) {
+                        m.copy(translations = m.translations + (lang to translated))
+                    } else m
+                })
             }
         }
     }

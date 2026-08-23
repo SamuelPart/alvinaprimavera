@@ -321,6 +321,19 @@ private fun ChatBubble(
                     color = if (mine) Color(0xFF0B1512) else TextPrimary
                 )
             }
+
+            // 🌐 Traducción automática (si la activaste para este amigo)
+            val translation = message.translations[java.util.Locale.getDefault().language]
+            if (!translation.isNullOrBlank() && !translation.equals(transcript, ignoreCase = true)) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "🌐 $translation",
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = if (mine) Color(0xFF0B1512).copy(alpha = 0.85f) else AccentBlue
+                )
+            }
         }
 
         // Hora: «14:32» hoy · «1 día atrás 14:32» si pasó tiempo

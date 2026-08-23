@@ -95,6 +95,10 @@ dependencies {
     // El modelo en español (~42 MB) se descarga una sola vez.
     implementation("com.alphacephei:vosk-android:0.3.47")
 
+    // 🌐 Traducción automática GRATIS y en el teléfono (por amigo)
+    implementation("com.google.mlkit:language-id:17.0.6")
+    implementation("com.google.mlkit:translate:17.0.3")
+
     // CameraX for QR Scanning
     val cameraxVersion = "1.3.4"
     implementation("androidx.camera:camera-core:$cameraxVersion")

@@ -160,6 +160,9 @@ class WalkieTalkieForegroundService : Service() {
                 pttEvents.collect { event ->
                     if (event.sender_flippy_id == myId) return@collect
                     if (uiInForeground) return@collect // la app abierta ya lo hace
+                    // 🔕 Silenciado (o bloqueado) en el panel del amigo → ni pío
+                    if (prefs.getBoolean("fs_mutenotif_${event.sender_flippy_id}", false)) return@collect
+                    if (prefs.getBoolean("fs_blocked_${event.sender_flippy_id}", false)) return@collect
                     if (event.event_type == "end") {
                         SoundEffects.playIncomingAlert()
                     }
@@ -176,6 +179,9 @@ class WalkieTalkieForegroundService : Service() {
                 incoming.collect { dto ->
                     if (dto.sender_flippy_id == myId) return@collect
                     if (uiInForeground) return@collect
+                    // ⛔ Bloqueado o con autoreproducción silenciada (panel del amigo)
+                    if (prefs.getBoolean("fs_blocked_${dto.sender_flippy_id}", false)) return@collect
+                    if (prefs.getBoolean("fs_muteauto_${dto.sender_flippy_id}", false)) return@collect
                     if (!prefs.getBoolean("autoplay_incoming", true)) return@collect
                     val path = dto.audio_url
                     if (path.isNullOrBlank()) return@collect
