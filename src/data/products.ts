@@ -142,6 +142,12 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
+/**
+ * Los 4 imperdibles que van en la portada (sánguche, jugo, café y postre).
+ * El resto de la carta sigue completa más abajo.
+ */
+export const FEATURED_IDS = ['pan-pollo', 'jugo-surtido', 'cafe-americano', 'alfajor'];
+
 export const CATEGORIES: Array<{ id: CategoryId; label: string; emoji: string }> = [
   { id: 'todos', label: 'Todos', emoji: '🍽️' },
   { id: 'sanguches', label: 'Sánguches', emoji: '🥪' },

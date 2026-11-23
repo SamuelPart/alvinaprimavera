@@ -6,7 +6,16 @@ import { OrderSheet } from '@/components/OrderSheet';
 import { ProductCard } from '@/components/ProductCard';
 import { Benefits, Contact, Footer } from '@/components/Sections';
 import { Toast, type ToastMessage } from '@/components/Toast';
-import { CATEGORIES, PRODUCTS, byId, money, norm, type CategoryId } from '@/data/products';
+import {
+  CATEGORIES,
+  FEATURED_IDS,
+  PRODUCTS,
+  byId,
+  money,
+  norm,
+  type CategoryId,
+  type Product,
+} from '@/data/products';
 import { useCart } from '@/hooks/useCart';
 import { useOpenStatus } from '@/hooks/useOpenStatus';
 import { useReveal } from '@/hooks/useReveal';
@@ -71,18 +80,21 @@ export default function App() {
     });
   }, [cat, query]);
 
+  /* Portada: solo los 4 imperdibles, no la carta completa. */
   const dishes = React.useMemo<Dish[]>(
     () =>
-      PRODUCTS.map((p) => ({
-        id: p.id,
-        name: p.name,
-        subtitle: p.desc,
-        price: p.price,
-        image: p.img,
-        accent: p.accent,
-        rating: p.rating,
-        tag: p.tag || undefined,
-      })),
+      FEATURED_IDS.map((id) => byId(id))
+        .filter((p): p is Product => Boolean(p))
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          subtitle: p.desc,
+          price: p.price,
+          image: p.img,
+          accent: p.accent,
+          rating: p.rating,
+          tag: p.tag || undefined,
+        })),
     [],
   );
 
@@ -130,7 +142,7 @@ export default function App() {
       {/* Portada: carrusel de platos */}
       <DishOrbitCarousel
         dishes={dishes}
-        eyebrow="Portada de la casa"
+        eyebrow="Los 4 de la casa"
         title={
           <>
             Los imperdibles
@@ -138,7 +150,7 @@ export default function App() {
             <em>de Alviña</em>
           </>
         }
-        subtitle="Sánguches, jugos y café pasado, hechos al momento. Gira la órbita y arma tu pedido."
+        subtitle="Sánguche, jugo, café y postre: la combinación de siempre. Gira la órbita y pide en un toque."
         onOrder={(dish) => inc(dish.id)}
         exploreLabel="Ver la carta completa"
         onExplore={scrollToCarta}

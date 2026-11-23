@@ -95,7 +95,7 @@ export function DishOrbitCarousel({
     const trigger = ScrollTrigger.create({
       trigger: section,
       start: 'top top',
-      end: () => '+=' + Math.round(window.innerHeight * 1.15),
+      end: () => '+=' + Math.round(window.innerHeight * 1.5),
       pin: true,
       pinSpacing: true,
       anticipatePin: 1,
@@ -140,13 +140,13 @@ export function DishOrbitCarousel({
     tlRef.current = tl;
     tl.fromTo(
       plate,
-      { scale: 0.88, rotate: -7 },
-      { scale: 1, rotate: 0, duration: 0.7, ease: 'back.out(1.5)' },
+      { scale: 0.92, rotate: -4 },
+      { scale: 1, rotate: 0, duration: 0.95, ease: 'power2.out' },
     ).fromTo(
       Array.from(info.children),
-      { y: 12, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.42, stagger: 0.045 },
-      0.06,
+      { y: 10, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.55, stagger: 0.05, ease: 'power3.out' },
+      0.05,
     );
 
     return () => {

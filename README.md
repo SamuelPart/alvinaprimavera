@@ -3,7 +3,7 @@
 Carta digital mobile-first de **Alviña Primavera**, cafetería y sanguchería en Trujillo, Perú.
 Los pedidos se arman en el navegador y se envían por WhatsApp con el detalle y el total en Soles.
 
-- **Portada**: carrusel-orbe de los platos de la casa (`dish-orbit-carousel`) con GSAP + ScrollTrigger.
+- **Portada**: carrusel-orbe con los **4 imperdibles** de la casa (`dish-orbit-carousel`) y GSAP + ScrollTrigger.
 - **Carta**: buscador, pestañas por categoría, 10 productos con foto propia y steppers +/−.
 - **Pedido**: barra flotante con ítems y total, hoja de pedido (recojo / delivery, Yape-Plin / efectivo) y mensaje de WhatsApp prellenado.
 - **Respaldo sin build**: `carta-rapida.html` (versión vanilla, mismo diseño y mismas fotos).
@@ -60,6 +60,7 @@ import { DishOrbitCarousel } from '@/components/ui/dish-orbit-carousel';
 
 <DishOrbitCarousel
   dishes={dishes}                 // { id, name, subtitle, price, image, accent, rating, tag }
+                                  // App le pasa solo FEATURED_IDS (4 platos)
   eyebrow="Portada de la casa"
   title={<>Los imperdibles<br /><em>de Alviña</em></>}
   onOrder={(dish) => inc(dish.id)} // agrega al carrito
@@ -67,7 +68,8 @@ import { DishOrbitCarousel } from '@/components/ui/dish-orbit-carousel';
 />
 ```
 
-- Toma el scroll con `ScrollTrigger` (pin) para recorrer la órbita; también responde a clic, swipe y teclado.
+- En escritorio (≥1024 px) el escenario pasa a dos columnas: texto a la izquierda y medallón grande a la derecha.
+- Toma el scroll con `ScrollTrigger` (pin) para recorrer la órbita (≈1,5 pantallas por vuelta, transiciones lentas); también responde a clic, swipe y teclado.
 - Con `prefers-reduced-motion` no se hace pin: se navega con las flechas, los puntos o los satélites.
 - Consume los tokens `--color-background`, `--color-foreground`, `--color-primary` y
   `--color-muted-foreground` definidos en `src/index.css`.
