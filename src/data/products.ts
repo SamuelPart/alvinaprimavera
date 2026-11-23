@@ -1,3 +1,5 @@
+import { BAKERY_ITEMS } from './extra';
+
 export type CategoryId = 'todos' | 'sanguches' | 'jugos' | 'cafes' | 'pan';
 
 export interface Product {
@@ -176,7 +178,8 @@ export const norm = (s: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
-export const byId = (id: string) => PRODUCTS.find((p) => p.id === id);
+export const byId = (id: string) =>
+  PRODUCTS.find((p) => p.id === id) ?? BAKERY_ITEMS.find((p) => p.id === id);
 
 export const REDUCED =
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'

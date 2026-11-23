@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { DishSpotlightCarousel, type Dish } from '@/components/ui/dish-spotlight-carousel';
 import { BackToTop } from '@/components/BackToTop';
+import { Bakery } from '@/components/Bakery';
 import { FloatBar } from '@/components/FloatBar';
 import { Header } from '@/components/Header';
 import { OrderSheet } from '@/components/OrderSheet';
@@ -22,7 +23,7 @@ import { useOpenStatus } from '@/hooks/useOpenStatus';
 import { useScrollReveal } from '@/hooks/useReveal';
 
 export default function App() {
-  const { cart, inc: addQty, dec: removeOne, remove, clear, totals } = useCart();
+  const { cart, inc: addQty, add: addN, dec: removeOne, remove, clear, totals } = useCart();
   const status = useOpenStatus();
 
   const [cat, setCat] = React.useState<CategoryId>('todos');
@@ -53,6 +54,16 @@ export default function App() {
       if (p) notify('+1 ' + p.name + ' · ' + money(p.price));
     },
     [addQty, notify],
+  );
+
+  /** Suma de golpe (media docena / docena de panadería). */
+  const addMany = React.useCallback(
+    (id: string, n: number) => {
+      addN(id, n);
+      const p = byId(id);
+      if (p) notify('+' + n + ' ' + p.name + ' · ' + money(p.price * n));
+    },
+    [addN, notify],
   );
 
   const dec = React.useCallback((id: string) => removeOne(id), [removeOne]);
@@ -151,81 +162,91 @@ export default function App() {
         onExplore={scrollToCarta}
       />
 
-      {/* Carta */}
-      <nav id="carta" className="sticky top-0 z-30 border-y border-espresso/10 bg-cream/95 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl">
-          <div id="tabs" role="tablist" aria-label="Categorías de la carta" className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="tab"
-                data-cat={c.id}
-                aria-selected={cat === c.id}
-                onClick={() => setCat(c.id)}
-                className="tab inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-espresso/10 bg-paper px-3.5 py-2 text-[12.5px] font-bold text-coffee/75"
-              >
-                <span aria-hidden="true" className="text-[12px]">
-                  {c.emoji}
-                </span>
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      <main className="mx-auto max-w-5xl px-4 pb-safe pt-5">
-        <div className="mb-3.5 flex items-end justify-between gap-3" data-reveal="heading">
-          <div>
-            <h2 id="sectionTitle" className="font-display text-[22px] font-semibold leading-none text-espresso">
-              {query ? 'Resultados' : activeCat.id === 'todos' ? 'Toda la carta' : activeCat.label}
-            </h2>
-            <p id="resultInfo" className="mt-1.5 text-[11.5px] font-medium text-coffee/55">
-              {resultLabel}
-            </p>
-          </div>
-          <div className="hidden items-center gap-2 rounded-full border border-espresso/10 bg-paper px-3 py-1.5 text-[10.5px] font-semibold text-coffee/60 sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Precios en Soles
-          </div>
-        </div>
-
-        <section
-          id="grid"
-          aria-live="polite"
-          className={'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3' + (visible.length === 0 ? ' hidden' : '')}
-        >
-          {visible.map((p, i) => (
-            <ProductCard key={p.id} product={p} qty={cart[p.id] || 0} onInc={inc} onDec={dec} index={i} />
-          ))}
-        </section>
-
-        {visible.length === 0 && (
-          <section id="empty" className="py-16 text-center">
-            <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full border border-espresso/10 bg-paper text-2xl shadow-card">
-              🔍
+      {/* Carta: el contenedor acota el nav pegajoso, así no se queda
+          flotando sobre la panadería ni el contacto. */}
+      <main>
+        <div id="cartaScope">
+          <nav id="carta" className="sticky top-0 z-30 border-y border-espresso/10 bg-cream/95 backdrop-blur-md">
+            <div className="mx-auto max-w-5xl">
+              <div id="tabs" role="tablist" aria-label="Categorías de la carta" className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    data-cat={c.id}
+                    aria-selected={cat === c.id}
+                    onClick={() => setCat(c.id)}
+                    className="tab inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-espresso/10 bg-paper px-3.5 py-2 text-[12.5px] font-bold text-coffee/75"
+                  >
+                    <span aria-hidden="true" className="text-[12px]">
+                      {c.emoji}
+                    </span>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <h3 className="font-display text-xl font-semibold text-espresso">No encontramos ese producto</h3>
-            <p className="mx-auto mt-1.5 max-w-[26ch] text-[12.5px] leading-relaxed text-coffee/60">
-              Prueba con otra palabra o vuelve a ver toda la carta.
-            </p>
-            <button
-              id="resetFilters"
-              type="button"
-              onClick={() => {
-                setCat('todos');
-                setQuery('');
-              }}
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-espresso px-5 py-3 text-[12.5px] font-extrabold tracking-wide text-cream shadow-card transition active:scale-95"
-            >
-              Ver toda la carta
-            </button>
-          </section>
-        )}
+          </nav>
 
-        <Benefits />
-        <Contact />
-        <Footer />
+          <div className="mx-auto max-w-5xl px-4 pt-5">
+            <div className="mb-3.5 flex items-end justify-between gap-3" data-reveal="heading">
+              <div>
+                <h2 id="sectionTitle" className="font-display text-[22px] font-semibold leading-none text-espresso">
+                  {query ? 'Resultados' : activeCat.id === 'todos' ? 'Toda la carta' : activeCat.label}
+                </h2>
+                <p id="resultInfo" className="mt-1.5 text-[11.5px] font-medium text-coffee/55">
+                  {resultLabel}
+                </p>
+              </div>
+              <div className="hidden items-center gap-2 rounded-full border border-espresso/10 bg-paper px-3 py-1.5 text-[10.5px] font-semibold text-coffee/60 sm:flex">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Precios en Soles
+              </div>
+            </div>
+
+            <section
+              id="grid"
+              aria-live="polite"
+              className={'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3' + (visible.length === 0 ? ' hidden' : '')}
+            >
+              {visible.map((p, i) => (
+                <ProductCard key={p.id} product={p} qty={cart[p.id] || 0} onInc={inc} onDec={dec} index={i} />
+              ))}
+            </section>
+
+            {visible.length === 0 && (
+              <section id="empty" className="py-16 text-center">
+                <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full border border-espresso/10 bg-paper text-2xl shadow-card">
+                  🔍
+                </div>
+                <h3 className="font-display text-xl font-semibold text-espresso">No encontramos ese producto</h3>
+                <p className="mx-auto mt-1.5 max-w-[26ch] text-[12.5px] leading-relaxed text-coffee/60">
+                  Prueba con otra palabra o vuelve a ver toda la carta.
+                </p>
+                <button
+                  id="resetFilters"
+                  type="button"
+                  onClick={() => {
+                    setCat('todos');
+                    setQuery('');
+                  }}
+                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-espresso px-5 py-3 text-[12.5px] font-extrabold tracking-wide text-cream shadow-card transition active:scale-95"
+                >
+                  Ver toda la carta
+                </button>
+              </section>
+            )}
+
+            </div>
+          </div>
+
+          <div className="mx-auto max-w-5xl px-4 pb-safe">
+            <Bakery qtyOf={(id) => cart[id] || 0} onAdd={addMany} onDec={dec} />
+
+            <Benefits />
+            <Contact />
+            <Footer />
+          </div>
       </main>
 
       <FloatBar qty={totals.qty} total={totals.total} onOpen={openSheet} />
