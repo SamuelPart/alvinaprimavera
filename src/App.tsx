@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { DishSpotlightCarousel, type Dish } from '@/components/ui/dish-spotlight-carousel';
+import { BackToTop } from '@/components/BackToTop';
 import { FloatBar } from '@/components/FloatBar';
 import { Header } from '@/components/Header';
 import { OrderSheet } from '@/components/OrderSheet';
@@ -18,12 +19,11 @@ import {
 } from '@/data/products';
 import { useCart } from '@/hooks/useCart';
 import { useOpenStatus } from '@/hooks/useOpenStatus';
-import { useReveal } from '@/hooks/useReveal';
+import { useScrollReveal } from '@/hooks/useReveal';
 
 export default function App() {
   const { cart, inc: addQty, dec: removeOne, remove, clear, totals } = useCart();
   const status = useOpenStatus();
-  useReveal();
 
   const [cat, setCat] = React.useState<CategoryId>('todos');
   const [query, setQuery] = React.useState('');
@@ -81,6 +81,9 @@ export default function App() {
   }, [cat, query]);
 
   /* Portada: solo los 4 imperdibles, no la carta completa. */
+  /* Reveal: se re-escanea cuando cambia la lista visible (filtros/búsqueda). */
+  useScrollReveal([visible]);
+
   const dishes = React.useMemo<Dish[]>(
     () =>
       FEATURED_IDS.map((id) => byId(id))
@@ -173,7 +176,7 @@ export default function App() {
       </nav>
 
       <main className="mx-auto max-w-5xl px-4 pb-safe pt-5">
-        <div className="reveal mb-3.5 flex items-end justify-between gap-3">
+        <div className="mb-3.5 flex items-end justify-between gap-3" data-reveal="heading">
           <div>
             <h2 id="sectionTitle" className="font-display text-[22px] font-semibold leading-none text-espresso">
               {query ? 'Resultados' : activeCat.id === 'todos' ? 'Toda la carta' : activeCat.label}
@@ -226,6 +229,8 @@ export default function App() {
       </main>
 
       <FloatBar qty={totals.qty} total={totals.total} onOpen={openSheet} />
+
+      <BackToTop />
 
       <OrderSheet
         open={sheetOpen}

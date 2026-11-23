@@ -18,7 +18,7 @@ const BENEFITS = [
 
 export function Benefits() {
   return (
-    <section className="reveal mt-9">
+    <section className="mt-9" data-reveal="section">
       <div className="mb-3 flex items-center gap-3">
         <h2 className="font-display text-[17px] font-semibold text-espresso">Por qué pedir aquí</h2>
         <span className="hairline flex-1" />
@@ -38,7 +38,10 @@ export function Benefits() {
 
 export function Contact() {
   return (
-    <section className="reveal grain relative mt-3 overflow-hidden rounded-[22px] border border-gold/20 bg-gradient-to-br from-[#3E2A18] via-espresso to-ink p-5 text-cream shadow-lift">
+    <section
+      className="grain relative mt-3 overflow-hidden rounded-[22px] border border-gold/20 bg-gradient-to-br from-[#3E2A18] via-espresso to-ink p-5 text-cream shadow-lift"
+      data-reveal="section"
+    >
       <div className="relative z-[2]">
         <p className="text-[9.5px] font-extrabold uppercase tracking-[0.26em] text-gold/80">Atención directa</p>
         <h2 className="mt-2 font-display text-[22px] font-medium leading-tight text-cream">¿Dudas con tu pedido?</h2>
@@ -68,7 +71,7 @@ export function Contact() {
 
 export function Footer() {
   return (
-    <footer className="reveal mt-9 text-center">
+    <footer className="mt-9 text-center" data-reveal="footer">
       <div className="mx-auto mb-4 h-px w-16 bg-espresso/15" />
       <p className="font-display text-[14px] font-semibold text-espresso">Alviña Primavera</p>
       <p className="mt-1 text-[10.5px] uppercase tracking-[0.18em] text-coffee/45">Trujillo · Perú</p>

@@ -220,18 +220,32 @@
     box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.12) !important;
   }
 
-  .reveal {
+  /* ── Scroll reveal (IntersectionObserver + transición) ──
+     Arranca 22 px abajo e invisible; `.is-revealed` lo sube a su sitio.
+     Se usa `translate` (propiedad individual) para no pelear con el
+     `transform` del hover de las tarjetas. */
+  [data-reveal] {
     opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+    translate: 0 22px;
+    transition:
+      opacity 0.75s cubic-bezier(0.22, 0.61, 0.36, 1),
+      translate 0.75s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-delay: var(--reveal-delay, 0ms);
   }
-  .reveal.is-in {
+  [data-reveal].is-revealed {
     opacity: 1;
-    transform: none;
+    translate: 0 0;
   }
 
-  .fade-up {
-    animation: fadeUp 0.38s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  /* Las tarjetas conservan su hover y suman el fade-up con retardo escalonado */
+  .card[data-reveal] {
+    transition:
+      transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1),
+      box-shadow 0.22s ease,
+      border-color 0.22s ease,
+      opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+      translate 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition-delay: 0s, 0s, 0s, var(--reveal-delay, 0ms), var(--reveal-delay, 0ms);
   }
 
   .pb-safe {
@@ -309,16 +323,6 @@ textarea::-webkit-scrollbar-thumb {
   }
   100% {
     transform: scale(1);
-  }
-}
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
   }
 }
 
@@ -796,6 +800,60 @@ textarea::-webkit-scrollbar-thumb {
   .strip-arrow {
     transition-duration: 0.001ms;
   }
+  [data-reveal] {
+    opacity: 1 !important;
+    translate: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Volver arriba ── */
+.to-top {
+  position: fixed;
+  right: clamp(12px, 2.2vw, 24px);
+  bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 162, 39, 0.45);
+  background: rgba(255, 253, 249, 0.92);
+  color: #2e1b0f;
+  box-shadow: 0 16px 34px -18px rgba(20, 12, 7, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  translate: 0 12px;
+  pointer-events: none;
+  cursor: pointer;
+  transition:
+    opacity 0.3s ease,
+    translate 0.3s cubic-bezier(0.22, 0.61, 0.36, 1),
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.to-top svg {
+  width: 18px;
+  height: 18px;
+}
+.to-top.is-visible {
+  opacity: 1;
+  translate: 0 0;
+  pointer-events: auto;
+}
+.to-top:hover {
+  background: #fffdf9;
+  border-color: #c9a227;
+  box-shadow: 0 20px 38px -18px rgba(20, 12, 7, 0.8);
+}
+.to-top:active {
+  transform: scale(0.94);
+}
+.to-top:focus-visible {
+  outline: 2px solid #c9a227;
+  outline-offset: 3px;
 }
 
 .wa-float {
