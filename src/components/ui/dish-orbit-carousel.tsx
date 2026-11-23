@@ -68,6 +68,7 @@ export function DishOrbitCarousel({
   const infoRef = React.useRef<HTMLDivElement | null>(null);
   const dragRef = React.useRef<number | null>(null);
   const addedTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tlRef = React.useRef<gsap.core.Timeline | null>(null);
 
   const step = total > 0 ? 360 / total : 360;
   const active = dishes[index];
@@ -122,6 +123,7 @@ export function DishOrbitCarousel({
 
   /* ── Aviso al padre cuando cambia el plato activo ── */
   React.useEffect(() => {
+    setAdded(false);
     if (active) onChange?.(active, index);
     // onChange se mantiene fuera de las deps para no re-disparar el efecto.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,7 +135,9 @@ export function DishOrbitCarousel({
     const info = infoRef.current;
     if (!plate || !info || prefersReducedMotion()) return;
 
+    tlRef.current?.kill();
     const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+    tlRef.current = tl;
     tl.fromTo(
       plate,
       { scale: 0.88, rotate: -7 },
@@ -149,6 +153,13 @@ export function DishOrbitCarousel({
       tl.kill();
     };
   }, [index]);
+
+  React.useEffect(
+    () => () => {
+      tlRef.current?.kill();
+    },
+    [],
+  );
 
   React.useEffect(() => () => {
     if (addedTimer.current) clearTimeout(addedTimer.current);
