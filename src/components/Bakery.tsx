@@ -98,17 +98,29 @@ export function Bakery({ qtyOf, onAdd, onDec }: BakeryProps) {
               data-bk={p.id}
               style={{ '--i': i } as React.CSSProperties}
             >
-              <div className="bk-item-top">
-                <h3 className="bk-name">{p.name}</h3>
-                <span className="bk-dots" aria-hidden="true" />
-                <p className="bk-price">
-                  {money(p.price)}
-                  <span className="bk-unit">{p.unit}</span>
-                </p>
+              <div className="bk-thumb">
+                <img
+                  src={'/assets/bakery/thumbs/' + p.id + '.webp'}
+                  alt={'Foto de ' + p.name}
+                  width={54}
+                  height={54}
+                  loading="lazy"
+                  decoding="async"
+                />
               </div>
 
-              <div className="bk-item-bot">
-                <p className="bk-desc">{p.desc}</p>
+              <div className="bk-body">
+                <div className="bk-item-top">
+                  <h3 className="bk-name">{p.name}</h3>
+                  <span className="bk-dots" aria-hidden="true" />
+                  <p className="bk-price">
+                    {money(p.price)}
+                    <span className="bk-unit">{p.unit}</span>
+                  </p>
+                </div>
+
+                <div className="bk-item-bot">
+                  <p className="bk-desc">{p.desc}</p>
 
                 <div className="bk-actions">
                   <button
@@ -153,6 +165,7 @@ export function Bakery({ qtyOf, onAdd, onDec }: BakeryProps) {
                     >
                       +
                     </button>
+                    </div>
                   </div>
                 </div>
               </div>
