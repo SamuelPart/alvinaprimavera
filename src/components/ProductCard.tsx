@@ -31,9 +31,10 @@ export function ProductCard({ product, qty, onInc, onDec, index }: ProductCardPr
 
   return (
     <article
-      className="card fade-up group relative flex gap-3.5 overflow-hidden rounded-[18px] border border-espresso/10 bg-paper p-2.5 shadow-card sm:flex-col sm:gap-0 sm:p-0"
+      className="card group relative flex gap-3.5 overflow-hidden rounded-[18px] border border-espresso/10 bg-paper p-2.5 shadow-card sm:flex-col sm:gap-0 sm:p-0"
       data-id={product.id}
-      style={{ animationDelay: Math.min(index * 30, 220) + 'ms' }}
+      data-reveal="card"
+      style={{ '--reveal-delay': Math.min(index, 3) * 60 + 'ms' } as React.CSSProperties}
     >
       <Thumb
         product={product}

@@ -5,6 +5,7 @@ Los pedidos se arman en el navegador y se envían por WhatsApp con el detalle y 
 
 - **Portada**: hero editorial con los **4 imperdibles** de la casa (`dish-spotlight-carousel`): plato enmarcado, titular a dos tonos sobre franja burdeos y tira de miniaturas.
 - **Carta**: buscador, pestañas por categoría, 10 productos con foto propia y steppers +/−.
+- **Movimiento**: scroll reveal con IntersectionObserver (`[data-reveal]` → fade-up escalonado) y botón flotante para volver arriba.
 - **Pedido**: barra flotante con ítems y total, hoja de pedido (recojo / delivery, Yape-Plin / efectivo) y mensaje de WhatsApp prellenado.
 - **Respaldo sin build**: `carta-rapida.html` (versión vanilla, mismo diseño y mismas fotos).
 
@@ -40,7 +41,7 @@ src/
     ProductCard.tsx            tarjeta con stepper
     OrderSheet.tsx             hoja de pedido + mensaje de WhatsApp
     FloatBar.tsx               barra flotante (ítems + total)
-    Thumb.tsx, Sections.tsx, Toast.tsx
+    Thumb.tsx, Sections.tsx, Toast.tsx, BackToTop.tsx
 public/assets/                 logo (PNG sin fondo), favicon y 10 fotos de producto
 ```
 
