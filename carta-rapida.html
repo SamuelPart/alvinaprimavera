@@ -8,7 +8,9 @@
 <meta name="description" content="Carta digital de Alviña Primavera, cafetería y sanguchería en Trujillo. Sánguches, jugos naturales, cafés, panes y postres. Pide por WhatsApp." />
 <meta name="theme-color" content="#FAF5EC" />
 
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>" />
+<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="apple-touch-icon" href="assets/favicon.png" />
+<link rel="preload" as="image" href="assets/logo-alvina.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -214,26 +216,22 @@
   <div class="relative mx-auto max-w-5xl px-4 pt-5">
 
     <!-- Marca -->
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex min-w-0 items-center gap-3">
-        <div class="monogram grid h-12 w-12 shrink-0 place-items-center rounded-[14px] border border-gold/30">
-          <span class="font-display text-[22px] font-semibold leading-none text-gold-soft">A</span>
-        </div>
-        <div class="min-w-0">
-          <h1 class="truncate font-display text-[24px] sm:text-[27px] font-semibold leading-none tracking-tight text-espresso">
-            Alviña <span class="italic text-gold-deep">Primavera</span>
-          </h1>
-          <p class="mt-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.26em] text-coffee/60">
-            Cafetería · Sanguches · Jugos
-          </p>
-        </div>
+    <div class="flex items-end justify-between gap-3">
+      <div class="min-w-0">
+        <h1 class="sr-only">Alviña Primavera · Carta digital, Trujillo</h1>
+        <img src="assets/logo-alvina.png" alt="Alviña — Panadería Café"
+             width="387" height="172" fetchpriority="high"
+             class="h-[70px] w-auto sm:h-[84px]" />
+        <p class="mt-2 text-[9.5px] font-extrabold uppercase tracking-[0.26em] text-coffee/60">
+          Cafetería · Sanguches · Jugos
+        </p>
       </div>
-
     </div>
 
     <!-- Panel de la casa -->
     <section class="grain relative mt-5 overflow-hidden rounded-[22px] border border-gold/20 bg-gradient-to-br from-[#3E2A18] via-espresso to-ink p-5 text-cream shadow-[0_30px_60px_-34px_rgba(20,12,7,.85)]">
-      <span class="pointer-events-none absolute -right-6 -top-10 select-none font-display text-[190px] leading-none text-white/[0.045]">A</span>
+      <img src="assets/logo-alvina-cream.png" alt="" aria-hidden="true"
+           class="pointer-events-none absolute -right-10 -top-4 w-[230px] -rotate-6 select-none opacity-[0.07]" />
       <div class="relative z-[2]">
         <div class="flex items-center justify-between gap-3">
           <p class="flex items-center gap-2 text-[9.5px] font-extrabold uppercase tracking-[0.28em] text-gold/85">

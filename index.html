@@ -12,7 +12,9 @@
 <meta property="og:description" content="Sánguches, jugos naturales, cafés y postres en Trujillo. Arma tu pedido y envíalo por WhatsApp." />
 <meta name="theme-color" content="#FAF5EC" />
 
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>" />
+<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="apple-touch-icon" href="assets/favicon.png" />
+<link rel="preload" as="image" href="assets/logo-alvina.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -419,7 +421,8 @@ function ProductCard({ product, qty, onInc, onDec, index }) {
 function Hero({ status }) {
   return (
     <section className="grain relative mt-5 overflow-hidden rounded-[22px] border border-gold/20 bg-gradient-to-br from-[#3E2A18] via-espresso to-ink p-5 text-cream shadow-[0_30px_60px_-34px_rgba(20,12,7,.85)]">
-      <span className="pointer-events-none absolute -right-6 -top-10 select-none font-display text-[190px] leading-none text-white/[0.045]">A</span>
+      <img src="assets/logo-alvina-cream.png" alt="" aria-hidden="true"
+           className="pointer-events-none absolute -right-10 -top-4 w-[230px] -rotate-6 select-none opacity-[0.07]" />
       <div className="relative z-[2]">
         <div className="flex items-center justify-between gap-3">
           <p className="flex items-center gap-2 text-[9.5px] font-extrabold uppercase tracking-[0.28em] text-gold/85">
@@ -960,19 +963,18 @@ function App() {
         <div className="pointer-events-none absolute -top-24 right-0 h-64 w-64 rounded-full bg-gold/10 blur-3xl"></div>
 
         <div className="relative mx-auto max-w-5xl px-4 pt-5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="monogram grid h-12 w-12 shrink-0 place-items-center rounded-[14px] border border-gold/30">
-                <span className="font-display text-[22px] font-semibold leading-none text-gold-soft">A</span>
-              </div>
-              <div className="min-w-0">
-                <h1 className="truncate font-display text-[24px] font-semibold leading-none tracking-tight text-espresso sm:text-[27px]">
-                  Alviña <span className="italic text-gold-deep">Primavera</span>
-                </h1>
-                <p className="mt-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.26em] text-coffee/60">
-                  Cafetería · Sanguches · Jugos
-                </p>
-              </div>
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="sr-only">Alviña Primavera · Carta digital, Trujillo</h1>
+              <img
+                src="assets/logo-alvina.png"
+                alt="Alviña — Panadería Café"
+                width="387" height="172" fetchpriority="high"
+                className="h-[70px] w-auto sm:h-[84px]"
+              />
+              <p className="mt-2 text-[9.5px] font-extrabold uppercase tracking-[0.26em] text-coffee/60">
+                Cafetería · Sanguches · Jugos
+              </p>
             </div>
           </div>
 
