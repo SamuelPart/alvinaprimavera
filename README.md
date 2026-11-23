@@ -5,6 +5,7 @@ Los pedidos se arman en el navegador y se envían por WhatsApp con el detalle y 
 
 - **Portada**: hero editorial con los **4 imperdibles** de la casa (`dish-spotlight-carousel`): plato enmarcado, titular a dos tonos sobre franja burdeos y tira de miniaturas.
 - **Carta**: buscador, pestañas por categoría, 10 productos con foto propia y steppers +/−.
+- **Tortas**: vitrina "por encargo" con la foto real de la torta de chocolate retocada (fondo limpio, luz de estudio) y CTA que abre WhatsApp con la consulta prellenada. `public/assets/tortas/`.
 - **Panadería**: sección propia con 27 panes y 28 bocaditos, **precios por unidad** (S/ 0.25 – S/ 3.00), miniatura de referencia por producto (`public/assets/bakery/thumbs`, WebP con alfa, 55 archivos), 6 grupos (clásicos, integrales, dulces, especiales, bocaditos dulces y salados) y atajos +6 / +12. Comparte carrito, totales y mensaje de WhatsApp con la carta.
 - **Portada**: los 4 platos destacados usan recortes con fondo transparente (`public/assets/products/cutout/*.webp`) y flotan sobre la portada; la carta sigue con sus fotos originales.
 - **Banner animado**: coreografía de entrada del plato y los textos (GSAP), flotación continua, inclinación 3D con el cursor y parallax al hacer scroll.

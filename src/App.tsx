@@ -2,6 +2,7 @@ import * as React from 'react';
 import { DishSpotlightCarousel, type Dish } from '@/components/ui/dish-spotlight-carousel';
 import { BackToTop } from '@/components/BackToTop';
 import { Bakery } from '@/components/Bakery';
+import { Cakes } from '@/components/Cakes';
 import { FloatBar } from '@/components/FloatBar';
 import { Header } from '@/components/Header';
 import { OrderSheet } from '@/components/OrderSheet';
@@ -242,6 +243,8 @@ export default function App() {
 
           <div className="mx-auto max-w-5xl px-4 pb-safe">
             <Bakery qtyOf={(id) => cart[id] || 0} onAdd={addMany} onDec={dec} />
+
+            <Cakes />
 
             <Benefits />
             <Contact />
