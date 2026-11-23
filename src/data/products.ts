@@ -13,6 +13,8 @@ export interface Product {
   accent: string;
   /** Puntaje mostrado en la portada (4.6 – 5.0). */
   rating: number;
+  /** Recorte con fondo transparente, solo para la portada y su tira. */
+  cutout?: string;
 }
 
 export const WHATSAPP_NUMBER = '51935466580';
@@ -31,6 +33,7 @@ export const PRODUCTS: Product[] = [
     img: '/assets/products/pan-pollo.jpg',
     accent: '#691312',
     rating: 4.9,
+    cutout: '/assets/products/cutout/pan-pollo.webp',
   },
   {
     id: 'mixto',
@@ -67,6 +70,7 @@ export const PRODUCTS: Product[] = [
     img: '/assets/products/jugo-surtido.jpg',
     accent: '#C05621',
     rating: 4.9,
+    cutout: '/assets/products/cutout/jugo-surtido.webp',
   },
   {
     id: 'cafe-americano',
@@ -79,6 +83,7 @@ export const PRODUCTS: Product[] = [
     img: '/assets/products/cafe-americano.jpg',
     accent: '#5A3A24',
     rating: 4.8,
+    cutout: '/assets/products/cutout/cafe-americano.webp',
   },
   {
     id: 'avena',
@@ -103,6 +108,7 @@ export const PRODUCTS: Product[] = [
     img: '/assets/products/alfajor.jpg',
     accent: '#A8743C',
     rating: 4.7,
+    cutout: '/assets/products/cutout/alfajor.webp',
   },
   {
     id: 'pionono',
