@@ -68,7 +68,6 @@ export function DishSpotlightCarousel({
   const rootRef = React.useRef<HTMLElement | null>(null);
   const colRef = React.useRef<HTMLDivElement | null>(null);
   const floatRef = React.useRef<HTMLDivElement | null>(null);
-  const markRef = React.useRef<HTMLImageElement | null>(null);
   const plateRef = React.useRef<HTMLDivElement | null>(null);
   const copyRef = React.useRef<HTMLDivElement | null>(null);
   const dragRef = React.useRef<number | null>(null);
@@ -126,15 +125,6 @@ export function DishSpotlightCarousel({
       .from(q('.spotlight-brand'), { y: 10, opacity: 0, duration: 0.5 }, 0.78)
       .from(q('.strip-card'), { y: 18, opacity: 0, duration: 0.55, stagger: 0.07 }, 0.5)
       .from(q('.strip-arrow'), { opacity: 0, duration: 0.45 }, 0.8);
-
-    if (markRef.current) {
-      tl.fromTo(
-        markRef.current,
-        { opacity: 0 },
-        { opacity: 0.055, duration: 1.6, ease: 'power2.out' },
-        0.2,
-      );
-    }
 
     tl.progress(0);
 
@@ -218,11 +208,9 @@ export function DishSpotlightCarousel({
   React.useEffect(() => {
     const root = rootRef.current;
     const col = colRef.current;
-    const mark = markRef.current;
     if (!root || !col || prefersReducedMotion()) return undefined;
 
     const toCol = gsap.quickTo(col, 'y', { duration: 0.45, ease: 'power2.out' });
-    const toMark = mark ? gsap.quickTo(mark, 'y', { duration: 0.6, ease: 'power2.out' }) : null;
     let raf = 0;
 
     const update = () => {
@@ -230,7 +218,6 @@ export function DishSpotlightCarousel({
       const r = root.getBoundingClientRect();
       const p = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height)));
       toCol(p * -44);
-      toMark?.(p * 32);
     };
     const onScroll = () => {
       if (!raf) raf = window.requestAnimationFrame(update);
@@ -319,13 +306,6 @@ export function DishSpotlightCarousel({
       className={cn('spotlight', className)}
       aria-label="El favorito de la casa"
     >
-      <img
-        ref={markRef}
-        className="spotlight-watermark"
-        src="/assets/logo-alvina-cream.png"
-        alt=""
-        aria-hidden="true"
-      />
       <div
         className="spotlight-inner"
         role="group"

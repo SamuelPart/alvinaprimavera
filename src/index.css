@@ -359,17 +359,6 @@ textarea::-webkit-scrollbar-thumb {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
 }
 
-.spotlight-watermark {
-  position: absolute;
-  z-index: 1;
-  top: -2%;
-  right: -4%;
-  width: min(62cqw, 380px);
-  opacity: 0.055;
-  transform: rotate(-6deg);
-  pointer-events: none;
-  user-select: none;
-}
 
 .spotlight-inner {
   container-type: inline-size;
@@ -414,7 +403,7 @@ textarea::-webkit-scrollbar-thumb {
 /* Escenario del plato: ya no es una foto recortada en círculo, sino un
    recorte con fondo transparente que flota sobre la portada. */
 .spotlight-plate {
-  --plate: min(96cqw, 54svh, 520px);
+  --plate: min(100cqw, 56svh, 620px);
   position: relative;
   width: var(--plate);
   aspect-ratio: 1;
@@ -428,6 +417,7 @@ textarea::-webkit-scrollbar-thumb {
   height: 100%;
   object-fit: contain;
   display: block;
+  pointer-events: none;
   filter: drop-shadow(0 26px 30px rgba(20, 12, 7, 0.42));
 }
 
@@ -758,7 +748,7 @@ textarea::-webkit-scrollbar-thumb {
     padding-inline: clamp(24px, 4vw, 56px);
   }
   .spotlight-plate {
-    --plate: min(46cqw, 62svh, 520px);
+    --plate: min(58cqw, 70svh, 620px);
   }
   .spotlight-index {
     display: grid;
