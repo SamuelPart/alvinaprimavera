@@ -47,6 +47,8 @@ export function useCart() {
   }, []);
 
   const inc = useCallback((id: string) => changeQty(id, 1), [changeQty]);
+  /** Suma N unidades de golpe (media docena / docena en panadería). */
+  const add = useCallback((id: string, n: number) => changeQty(id, n), [changeQty]);
   const dec = useCallback((id: string) => changeQty(id, -1), [changeQty]);
 
   const remove = useCallback((id: string) => {
@@ -74,5 +76,5 @@ export function useCart() {
     };
   }, [cart]);
 
-  return { cart, inc, dec, remove, clear, totals };
+  return { cart, inc, add, dec, remove, clear, totals };
 }
