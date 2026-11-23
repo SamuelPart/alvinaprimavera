@@ -398,6 +398,7 @@ textarea::-webkit-scrollbar-thumb {
   display: grid;
   place-items: center;
   padding-block: clamp(4px, 1.5vw, 14px);
+  will-change: transform;
 }
 .spotlight-plate-col::before {
   content: "";
@@ -437,6 +438,15 @@ textarea::-webkit-scrollbar-thumb {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* Capa de animación: flotación + inclinación con el cursor */
+.spotlight-plate-float {
+  position: relative;
+  display: grid;
+  place-items: center;
+  transform-style: preserve-3d;
+  will-change: transform;
 }
 
 /* Índice vertical (solo escritorio) */

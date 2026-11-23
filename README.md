@@ -5,6 +5,7 @@ Los pedidos se arman en el navegador y se envían por WhatsApp con el detalle y 
 
 - **Portada**: hero editorial con los **4 imperdibles** de la casa (`dish-spotlight-carousel`): plato enmarcado, titular a dos tonos sobre franja burdeos y tira de miniaturas.
 - **Carta**: buscador, pestañas por categoría, 10 productos con foto propia y steppers +/−.
+- **Banner animado**: coreografía de entrada del plato y los textos (GSAP), flotación continua, inclinación 3D con el cursor y parallax al hacer scroll.
 - **Movimiento**: scroll reveal con IntersectionObserver (`[data-reveal]` → fade-up escalonado) y botón flotante para volver arriba.
 - **Pedido**: barra flotante con ítems y total, hoja de pedido (recojo / delivery, Yape-Plin / efectivo) y mensaje de WhatsApp prellenado.
 - **Respaldo sin build**: `carta-rapida.html` (versión vanilla, mismo diseño y mismas fotos).
