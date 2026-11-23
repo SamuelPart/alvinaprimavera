@@ -3,7 +3,7 @@
 Carta digital mobile-first de **Alviña Primavera**, cafetería y sanguchería en Trujillo, Perú.
 Los pedidos se arman en el navegador y se envían por WhatsApp con el detalle y el total en Soles.
 
-- **Portada**: carrusel-orbe con los **4 imperdibles** de la casa (`dish-orbit-carousel`) y GSAP + ScrollTrigger.
+- **Portada**: hero editorial con los **4 imperdibles** de la casa (`dish-spotlight-carousel`): plato enmarcado, titular a dos tonos sobre franja burdeos y tira de miniaturas.
 - **Carta**: buscador, pestañas por categoría, 10 productos con foto propia y steppers +/−.
 - **Pedido**: barra flotante con ítems y total, hoja de pedido (recojo / delivery, Yape-Plin / efectivo) y mensaje de WhatsApp prellenado.
 - **Respaldo sin build**: `carta-rapida.html` (versión vanilla, mismo diseño y mismas fotos).
@@ -16,7 +16,7 @@ Los pedidos se arman en el navegador y se envían por WhatsApp con el detalle y 
 | React + TypeScript | 18.3 + 5.6 |
 | Tailwind CSS | 3.4 (config propia con la paleta de la marca) |
 | shadcn/ui | estructura + tokens (`components.json`, `@/components/ui`) |
-| GSAP | 3.12 (`ScrollTrigger`) para la portada |
+| GSAP | 3.12 para las transiciones de la portada |
 
 El proyecto usa la convención de shadcn/ui (`components.json`, alias `@/*`, `cn()` en `@/lib/utils`,
 tokens CSS en `src/index.css`) con Tailwind 3.4 para conservar exactamente los estilos ya aprobados.
@@ -35,7 +35,7 @@ src/
   data/products.ts             catálogo, categorías, formato de Soles, WhatsApp
   hooks/                       carrito (localStorage), horario, dinero animado, reveal
   components/
-    ui/dish-orbit-carousel.tsx portada (GSAP + ScrollTrigger, accesible)
+    ui/dish-spotlight-carousel.tsx  portada editorial (GSAP, accesible)
     Header.tsx                 logo, subtítulo, horario, estado abierto/cerrado, buscador
     ProductCard.tsx            tarjeta con stepper
     OrderSheet.tsx             hoja de pedido + mensaje de WhatsApp
@@ -53,24 +53,24 @@ npm run build      # tsc --noEmit + vite build → dist/
 npm run preview    # sirve dist/
 ```
 
-## Portada: `dish-orbit-carousel`
+## Portada: `dish-spotlight-carousel`
 
 ```tsx
-import { DishOrbitCarousel } from '@/components/ui/dish-orbit-carousel';
+import { DishSpotlightCarousel } from '@/components/ui/dish-spotlight-carousel';
 
-<DishOrbitCarousel
-  dishes={dishes}                 // { id, name, subtitle, price, image, accent, rating, tag }
-                                  // App le pasa solo FEATURED_IDS (4 platos)
-  eyebrow="Portada de la casa"
-  title={<>Los imperdibles<br /><em>de Alviña</em></>}
-  onOrder={(dish) => inc(dish.id)} // agrega al carrito
+<DishSpotlightCarousel
+  dishes={dishes}                  // los 4 de FEATURED_IDS
+  eyebrow="El más pedido de la casa"
+  onOrder={(dish) => inc(dish.id)}  // agrega al carrito
   onExplore={scrollToCarta}
 />
 ```
 
-- En escritorio (≥1024 px) el escenario pasa a dos columnas: texto a la izquierda y medallón grande a la derecha.
-- Toma el scroll con `ScrollTrigger` (pin) para recorrer la órbita (≈1,5 pantallas por vuelta, transiciones lentas); también responde a clic, swipe y teclado.
-- Con `prefers-reduced-motion` no se hace pin: se navega con las flechas, los puntos o los satélites.
+- Banda espresso a sangre con grano, marca de agua del logo, plato enmarcado y titular Fraunces en
+  dos tonos (mayúsculas crema + itálica dorada) sobre una franja diagonal burdeos.
+- Tira inferior con los 4 platos (nombre + precio) y flechas; también responde a teclado (`←` `→`
+  `Home` `End`) y swipe. `prefers-reduced-motion` desactiva las transiciones.
+- En ≥900 px el plato va a la izquierda y el texto a la derecha; en móvil, plato primero y luego el texto.
 - Consume los tokens `--color-background`, `--color-foreground`, `--color-primary` y
   `--color-muted-foreground` definidos en `src/index.css`.
 

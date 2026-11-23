@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { DishOrbitCarousel, type Dish } from '@/components/ui/dish-orbit-carousel';
+import { DishSpotlightCarousel, type Dish } from '@/components/ui/dish-spotlight-carousel';
 import { FloatBar } from '@/components/FloatBar';
 import { Header } from '@/components/Header';
 import { OrderSheet } from '@/components/OrderSheet';
@@ -139,18 +139,10 @@ export default function App() {
 
       <Header status={status} query={query} onQueryChange={setQuery} />
 
-      {/* Portada: carrusel de platos */}
-      <DishOrbitCarousel
+      {/* Portada: hero editorial con los 4 imperdibles */}
+      <DishSpotlightCarousel
         dishes={dishes}
-        eyebrow="Los 4 de la casa"
-        title={
-          <>
-            Los imperdibles
-            <br />
-            <em>de Alviña</em>
-          </>
-        }
-        subtitle="Sánguche, jugo, café y postre: la combinación de siempre. Gira la órbita y pide en un toque."
+        eyebrow="El más pedido de la casa"
         onOrder={(dish) => inc(dish.id)}
         exploreLabel="Ver la carta completa"
         onExplore={scrollToCarta}
