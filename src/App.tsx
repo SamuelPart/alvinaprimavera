@@ -93,7 +93,7 @@ export default function App() {
           name: p.name,
           subtitle: p.desc,
           price: p.price,
-          image: p.img,
+          image: p.cutout ?? p.img,
           accent: p.accent,
           rating: p.rating,
           tag: p.tag || undefined,
