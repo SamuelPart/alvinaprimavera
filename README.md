@@ -15,6 +15,7 @@ Carta digital y catálogo de pedidos por WhatsApp para **Alviña Primavera**, ca
 | `assets/logo-alvina.png` | Logo oficial de Alviña sin fondo, en tono espresso (para fondos claros). |
 | `assets/logo-alvina-cream.png` | Misma marca en tono crema (para el panel oscuro del hero). |
 | `assets/favicon.png` | Ícono de la pestaña del navegador. |
+| `assets/products/*.jpg` | Fotos propias de los 10 productos (900×900, ~100 KB c/u) con la banderita de la marca. |
 
 Ambas comparten el mismo diseño, catálogo, carrito y mensaje de WhatsApp. Solo cambia la tecnología.
 
@@ -36,7 +37,7 @@ Es un sitio 100 % estático. En Vercel (o Netlify, Cloudflare Pages, GitHub Page
 - **Número de WhatsApp:** constante `WHATSAPP_NUMBER` (`51935466580`).
 - **Horario y estado abierto/cerrado:** panel del hero y función `computeStatus()` (hora de Lima).
 - **Colores y tipografía:** bloque `tailwind.config` al inicio del archivo.
-- **Imágenes:** URLs de Unsplash por producto; si alguna falla, se muestra un emoji sobre un degradado cálido.
+- **Imágenes:** fotos propias en `assets/products/` (900×900, JPEG q78). Si alguna falla, se muestra un emoji sobre un degradado cálido.
 - **Logo:** el original venía sobre fondo rojo; se convirtió a PNG con transparencia (se conserva el alfa del texto original). Para cambiarlo, reemplaza los archivos de `assets/` manteniendo el mismo nombre.
 
 ## Datos del negocio

@@ -10,11 +10,17 @@
 <meta property="og:locale" content="es_PE" />
 <meta property="og:title" content="Alviña Primavera · Carta Digital y Pedidos por WhatsApp" />
 <meta property="og:description" content="Sánguches, jugos naturales, cafés y postres en Trujillo. Arma tu pedido y envíalo por WhatsApp." />
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/SamuelPart/alvinaprimavera@main/assets/products/pan-pollo.jpg" />
+<meta property="og:image:alt" content="Pan con pollo de Alviña Primavera" />
+<meta property="og:image:width" content="900" />
+<meta property="og:image:height" content="900" />
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="theme-color" content="#FAF5EC" />
 
 <link rel="icon" type="image/png" href="assets/favicon.png" />
 <link rel="apple-touch-icon" href="assets/favicon.png" />
 <link rel="preload" as="image" href="assets/logo-alvina.png" />
+<link rel="preload" as="image" href="assets/products/pan-pollo.jpg" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -233,36 +239,36 @@ const REDUCED = typeof window.matchMedia === 'function'
 const U = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=720&q=72`;
 
 const PRODUCTS = [
-  { id:'pan-pollo', name:'Pan con Pollo Especial', price:5.00, cat:'sanguches', emoji:'🥪', tag:'Más pedido',
+  { id: 'pan-pollo', name:'Pan con Pollo Especial', price:5.00, cat:'sanguches', emoji:'🥪', tag:'Más pedido',
     desc:'Pan francés crocante, pollo deshilachado, mayonesa casera y lechuga fresca.',
-    img: U('photo-1539252554453-80ab65ce3586') },
-  { id:'mixto', name:'Sándwich Mixto Caliente', price:4.50, cat:'sanguches', emoji:'🧀', tag:'',
+    img: 'assets/products/pan-pollo.jpg' },
+  { id: 'mixto', name:'Sándwich Mixto Caliente', price:4.50, cat:'sanguches', emoji:'🧀', tag:'',
     desc:'Jamón y queso derretido a la plancha, pan doradito. El clásico de la mañana.',
-    img: U('photo-1528735602780-2552fd46c7af') },
-  { id:'jugo-papaya', name:'Jugo de Papaya Natural', price:4.00, cat:'jugos', emoji:'🥤', tag:'',
+    img: 'assets/products/mixto.jpg' },
+  { id: 'jugo-papaya', name:'Jugo de Papaya Natural', price:4.00, cat:'jugos', emoji:'🥤', tag:'',
     desc:'Papaya fresca, sin azúcar añadida. Dulce, ligero y bien frío.',
-    img: U('photo-1600271886742-f049cd451bba') },
-  { id:'jugo-surtido', name:'Jugo Surtido Especial', price:5.00, cat:'jugos', emoji:'🍹', tag:'De la casa',
+    img: 'assets/products/jugo-papaya.jpg' },
+  { id: 'jugo-surtido', name:'Jugo Surtido Especial', price:5.00, cat:'jugos', emoji:'🍹', tag:'De la casa',
     desc:'Piña, papaya, naranja y un toque de miel. Nuestra mezcla de la casa.',
-    img: U('photo-1613478223719-2ab802602423') },
-  { id:'cafe-americano', name:'Café Americano Pasado', price:3.00, cat:'cafes', emoji:'☕', tag:'',
+    img: 'assets/products/jugo-surtido.jpg' },
+  { id: 'cafe-americano', name:'Café Americano Pasado', price:3.00, cat:'cafes', emoji:'☕', tag:'',
     desc:'Café de grano peruano pasado en olla. Aroma intenso y cuerpo suave.',
-    img: U('photo-1509042239860-f550ce710b93') },
-  { id:'avena', name:'Avena Caliente', price:2.50, cat:'cafes', emoji:'🥣', tag:'',
+    img: 'assets/products/cafe-americano.jpg' },
+  { id: 'avena', name:'Avena Caliente', price:2.50, cat:'cafes', emoji:'🥣', tag:'',
     desc:'Avena cocida con leche, canela y clavo de olor. Reconfortante y cremosa.',
-    img: U('photo-1488477181946-6428a0291777') },
-  { id:'alfajor', name:'Alfajor Artesanal', price:2.00, cat:'pan', emoji:'🍪', tag:'',
+    img: 'assets/products/avena.jpg' },
+  { id: 'alfajor', name:'Alfajor Artesanal', price:2.00, cat:'pan', emoji:'🍪', tag:'',
     desc:'Manjar blanco entre dos galletas suaves, bañado en azúcar impalpable.',
-    img: U('photo-1558961363-fa8fdf82db35') },
-  { id:'pionono', name:'Pionono de Manjar', price:2.50, cat:'pan', emoji:'🍰', tag:'',
+    img: 'assets/products/alfajor.jpg' },
+  { id: 'pionono', name:'Pionono de Manjar', price:2.50, cat:'pan', emoji:'🍰', tag:'',
     desc:'Bizcocho esponjoso enrollado con manjar de la casa y un toque de azúcar.',
-    img: U('photo-1578985545062-69928b1d9587') },
-  { id:'gaseosa', name:'Gaseosa Personal', price:2.50, cat:'cafes', emoji:'🥤', tag:'',
+    img: 'assets/products/pionono.jpg' },
+  { id: 'gaseosa', name:'Gaseosa Personal', price:2.50, cat:'cafes', emoji:'🥤', tag:'',
     desc:'Inca Kola, Coca-Cola o Fanta bien helada, en envase personal.',
-    img: U('photo-1581636625402-29b2a704ef13') },
-  { id:'batimix', name:'Batimix', price:3.50, cat:'jugos', emoji:'🥛', tag:'Favorito',
+    img: 'assets/products/gaseosa.jpg' },
+  { id: 'batimix', name:'Batimix', price:3.50, cat:'jugos', emoji:'🥛', tag:'Favorito',
     desc:'Batido cremoso de frutas frescas con leche. Pregunta por la fruta del día.',
-    img: U('photo-1553530666-ba11a7da3888') }
+    img: 'assets/products/batimix.jpg' }
 ];
 
 const CATEGORIES = [
