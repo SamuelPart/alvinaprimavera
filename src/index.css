@@ -407,6 +407,13 @@ textarea::-webkit-scrollbar-thumb {
   color: rgba(90, 58, 36, 0.7);
 }
 
+/* En pantallas altas el medallón puede crecer sin comerse la ficha */
+@media (min-width: 900px) and (min-height: 800px) {
+  .orbit {
+    --side: min(46svh, 520px);
+  }
+}
+
 /* ── Escenario circular ── */
 .orbit {
   /* El escenario es un cuadrado que se adapta al ancho del contenedor
@@ -744,7 +751,7 @@ textarea::-webkit-scrollbar-thumb {
 /* En pantallas muy bajas (móvil apaisado) se aprieta el escenario */
 @media (max-height: 700px) {
   .orbit {
-    --side: min(78cqw, 37svh, 430px);
+    --side: min(78cqw, 34svh, 430px);
     --plate: clamp(84px, 22cqw, 150px);
     --sat: clamp(32px, 8.5cqw, 58px);
   }
